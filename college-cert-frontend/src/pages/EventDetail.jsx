@@ -24,7 +24,16 @@ export default function EventDetail() {
   const [savingLayout, setSavingLayout] = useState(false);
   const [activeTab, setActiveTab] = useState("participants");
   const [sendingEmails, setSendingEmails] = useState(false);
+  const [deletingTemplate, setDeletingTemplate] = useState(false);
+  const [manualParticipantForm, setManualParticipantForm] = useState({ name: "", email: "", roll_no: "", department: "" });
+  const [addingParticipant, setAddingParticipant] = useState(false);
+  const [closingEvent, setClosingEvent] = useState(false);
+  const [editingTemplateImage, setEditingTemplateImage] = useState(false);
+  const [templateImageFile, setTemplateImageFile] = useState(null);
+  const [savingTemplateImage, setSavingTemplateImage] = useState(false);
+  const [eventStats, setEventStats] = useState(null);
   const templateFileInputRef = useRef(null);
+  const templateImageInputRef = useRef(null);
 
   const adminSecret = import.meta.env.VITE_ADMIN_SECRET;
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
@@ -40,6 +49,15 @@ export default function EventDetail() {
       setEvent(ev);
     } catch (err) {
       console.error("Failed to load event:", err);
+    }
+  };
+
+  const loadEventStats = async () => {
+    try {
+      const res = await api.get(`/events/${id}/stats`);
+      setEventStats(res.data);
+    } catch (err) {
+      console.error("Failed to load event stats:", err);
     }
   };
 
@@ -86,6 +104,7 @@ export default function EventDetail() {
 
   useEffect(() => {
     loadEvent();
+    loadEventStats();
     loadParticipants();
     loadCertificates();
   }, [id]);
@@ -259,6 +278,95 @@ export default function EventDetail() {
     }
   };
 
+  const deleteTemplate = async () => {
+    if (!selectedTemplateId) return;
+    if (!confirm(`Delete template "${selectedTemplate.name}"? This cannot be undone.`)) {
+      return;
+    }
+    setDeletingTemplate(true);
+    try {
+      await api.delete(`/certificates/templates/${selectedTemplateId}?admin_secret=${adminSecret}`);
+      alert("Template deleted successfully");
+      setSelectedTemplateId("");
+      await loadTemplates();
+    } catch (err) {
+      alert("Failed to delete template: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setDeletingTemplate(false);
+    }
+  };
+
+  const saveTemplateImage = async () => {
+    if (!templateImageFile || !selectedTemplateId) return;
+    setSavingTemplateImage(true);
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append("admin_secret", adminSecret);
+      uploadFormData.append("image", templateImageFile);
+
+      await api.post(`/certificates/templates/${selectedTemplateId}/image`, uploadFormData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      
+      alert("Template image updated successfully");
+      setEditingTemplateImage(false);
+      setTemplateImageFile(null);
+      if (templateImageInputRef.current) {
+        templateImageInputRef.current.value = "";
+      }
+      await loadTemplates();
+    } catch (err) {
+      alert("Failed to update template image: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setSavingTemplateImage(false);
+    }
+  };
+
+  const addParticipant = async (e) => {
+    e.preventDefault();
+    if (!manualParticipantForm.name.trim()) {
+      alert("Participant name is required");
+      return;
+    }
+    setAddingParticipant(true);
+    try {
+      await api.post(`/participants/?admin_secret=${adminSecret}`, {
+        event_id: Number(id),
+        name: manualParticipantForm.name.trim(),
+        email: manualParticipantForm.email.trim() || null,
+        roll_no: manualParticipantForm.roll_no.trim() || null,
+        department: manualParticipantForm.department.trim() || null,
+      });
+      alert("Participant added successfully!");
+      setManualParticipantForm({ name: "", email: "", roll_no: "", department: "" });
+      await loadParticipants();
+    } catch (err) {
+      alert("Failed to add participant: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setAddingParticipant(false);
+    }
+  };
+
+  const closeEvent = async () => {
+    if (!event || !event.is_active) {
+      alert("This event is not active or not found");
+      return;
+    }
+    if (!confirm(`Close event "${event.name}"? Once closed, no new certificates can be issued for this event.`)) {
+      return;
+    }
+    setClosingEvent(true);
+    try {
+      await api.patch(`/events/${id}/close?admin_secret=${adminSecret}`);
+      alert("Event closed successfully");
+      await loadEvent();
+    } catch (err) {
+      alert("Failed to close event: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setClosingEvent(false);
+    }
+  };
+
   const generateCertificates = async () => {
     if (!selectedTemplateId) {
       alert("Select a certificate template before generating.");
@@ -356,6 +464,29 @@ export default function EventDetail() {
           <span className={`badge ${event.is_active ? "badge-success" : "badge-error"}`}>
             {event.is_active ? "Active" : "Inactive"}
           </span>
+          {event.is_active && (
+            <button 
+              onClick={closeEvent} 
+              className="btn btn-error" 
+              disabled={closingEvent}
+              style={{ padding: "0.5rem 1rem", fontSize: "0.875rem" }}
+            >
+              {closingEvent ? (
+                <>
+                  <div className="loading-spinner" style={{ width: "14px", height: "14px", borderWidth: "2px", margin: 0 }}></div>
+                  Closing...
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                  Close Event
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -381,6 +512,18 @@ export default function EventDetail() {
             </svg>
             {participants.length} Participants
           </span>
+          {eventStats && (
+            <>
+              <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                {eventStats.total_certificates_issued} Certificates Issued
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -470,7 +613,7 @@ export default function EventDetail() {
             
             <div style={{ marginBottom: "2rem" }}>
               <label style={{ display: "block", marginBottom: "0.75rem", fontWeight: "600", fontSize: "0.9375rem" }}>Upload Method</label>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
                 <button
                   className={`btn ${uploadType === "csv" ? "btn-primary" : "btn-secondary"}`}
                   onClick={() => setUploadType("csv")}
@@ -492,11 +635,70 @@ export default function EventDetail() {
                 >
                   Google Sheets
                 </button>
+                <button
+                  className={`btn ${uploadType === "manual" ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setUploadType("manual")}
+                  style={{ padding: "0.875rem 1rem", justifyContent: "center", width: "100%" }}
+                >
+                  Add Manually
+                </button>
               </div>
             </div>
             
-            <form onSubmit={uploadCsv} className="mb-4">
-              {uploadType === "sheets" ? (
+            <form onSubmit={uploadType === "manual" ? addParticipant : uploadCsv} className="mb-4">
+              {uploadType === "manual" ? (
+                <div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+                    <div className="form-group">
+                      <label htmlFor="participant-name">Name *</label>
+                      <input
+                        id="participant-name"
+                        type="text"
+                        placeholder="Enter participant name"
+                        value={manualParticipantForm.name}
+                        onChange={(e) => setManualParticipantForm({...manualParticipantForm, name: e.target.value})}
+                        disabled={addingParticipant}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="participant-email">Email</label>
+                      <input
+                        id="participant-email"
+                        type="email"
+                        placeholder="participant@example.com"
+                        value={manualParticipantForm.email}
+                        onChange={(e) => setManualParticipantForm({...manualParticipantForm, email: e.target.value})}
+                        disabled={addingParticipant}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+                    <div className="form-group">
+                      <label htmlFor="participant-roll">Roll No</label>
+                      <input
+                        id="participant-roll"
+                        type="text"
+                        placeholder="e.g. A001"
+                        value={manualParticipantForm.roll_no}
+                        onChange={(e) => setManualParticipantForm({...manualParticipantForm, roll_no: e.target.value})}
+                        disabled={addingParticipant}
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label htmlFor="participant-dept">Department</label>
+                      <input
+                        id="participant-dept"
+                        type="text"
+                        placeholder="e.g. Computer Science"
+                        value={manualParticipantForm.department}
+                        onChange={(e) => setManualParticipantForm({...manualParticipantForm, department: e.target.value})}
+                        disabled={addingParticipant}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : uploadType === "sheets" ? (
                 <div className="form-group">
                   <label htmlFor="sheetsUrl">Google Sheets URL</label>
                   <input
@@ -510,6 +712,7 @@ export default function EventDetail() {
                   />
                   <small style={{ display: "block", marginTop: "0.5rem", color: "var(--text-muted)" }}>
                     Make sure the sheet is publicly accessible or shared with "Anyone with the link"
+
                   </small>
                 </div>
               ) : (
@@ -525,11 +728,11 @@ export default function EventDetail() {
                 </div>
               )}
               
-              <button type="submit" className="btn btn-primary w-full" disabled={uploading}>
-                {uploading ? (
+              <button type="submit" className="btn btn-primary w-full" disabled={uploading || addingParticipant}>
+                {uploading || addingParticipant ? (
                   <>
                     <div className="loading-spinner" style={{ width: "16px", height: "16px", borderWidth: "2px", margin: 0 }}></div>
-                    {uploadType === "sheets" ? "Importing..." : "Uploading..."}
+                    {uploadType === "sheets" ? "Importing..." : uploadType === "manual" ? "Adding..." : "Uploading..."}
                   </>
                 ) : (
                   <>
@@ -538,7 +741,7 @@ export default function EventDetail() {
                       <polyline points="17 8 12 3 7 8"></polyline>
                       <line x1="12" y1="3" x2="12" y2="15"></line>
                     </svg>
-                    {uploadType === "sheets" ? "Import from Sheets" : `Upload ${uploadType === "excel" ? "Excel" : "CSV"}`}
+                    {uploadType === "sheets" ? "Import from Sheets" : uploadType === "manual" ? "Add Participant" : `Upload ${uploadType === "excel" ? "Excel" : "CSV"}`}
                   </>
                 )}
               </button>
@@ -662,13 +865,28 @@ export default function EventDetail() {
                   </button>
                 </div>
               ) : (
-                <button onClick={startEditingLayout} className="btn btn-primary" disabled={!selectedTemplate}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 20h9"></path>
-                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                  </svg>
-                  Edit Layout
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={startEditingLayout} className="btn btn-primary" disabled={!selectedTemplate}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 20h9"></path>
+                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                    </svg>
+                    Edit Layout
+                  </button>
+                  <button
+                    onClick={() => setEditingTemplateImage(!editingTemplateImage)}
+                    className="btn btn-secondary"
+                    disabled={!selectedTemplate}
+                    title="Change template image"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                      <polyline points="21 15 16 10 5 21"></polyline>
+                    </svg>
+                    Change Image
+                  </button>
+                </div>
               )}
             </div>
 
@@ -677,18 +895,46 @@ export default function EventDetail() {
                 <div className="loading-spinner" style={{ width: "32px", height: "32px" }}></div>
               </div>
             ) : (
-              <div className="form-group">
-                <label htmlFor="template-select">Select Template</label>
-                <select
-                  id="template-select"
-                  value={selectedTemplateId}
-                  onChange={(e) => setSelectedTemplateId(e.target.value)}
-                >
-                  {templates.map((tpl) => (
-                    <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
-                  ))}
-                  <option value="">+ Upload New Template</option>
-                </select>
+              <div>
+                <div className="form-group">
+                  <label htmlFor="template-select">Select Template</label>
+                  <div style={{ display: "flex", gap: "0.5rem", alignItems: "flex-end" }}>
+                    <select
+                      id="template-select"
+                      value={selectedTemplateId}
+                      onChange={(e) => setSelectedTemplateId(e.target.value)}
+                      style={{ flex: 1 }}
+                    >
+                      {templates.map((tpl) => (
+                        <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
+                      ))}
+                      <option value="">+ Upload New Template</option>
+                    </select>
+                    {selectedTemplateId && (
+                      <button 
+                        type="button" 
+                        onClick={deleteTemplate} 
+                        className="btn btn-error" 
+                        disabled={deletingTemplate}
+                        style={{ padding: "0.5rem 1rem" }}
+                        title="Delete this template"
+                      >
+                        {deletingTemplate ? (
+                          <>
+                            <div className="loading-spinner" style={{ width: "14px", height: "14px", borderWidth: "2px", margin: 0 }}></div>
+                          </>
+                        ) : (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            <line x1="10" y1="11" x2="10" y2="17"></line>
+                            <line x1="14" y1="11" x2="14" y2="17"></line>
+                          </svg>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -763,6 +1009,50 @@ export default function EventDetail() {
                    </button>
                  </form>
                </div>
+            )}
+
+            {editingTemplateImage && selectedTemplate && (
+              <div className="card" style={{ marginTop: "1.5rem", background: "var(--bg-subtle)", border: "1px dashed var(--border-color)" }}>
+                <h3 style={{ fontSize: "1.125rem", fontWeight: "700", marginBottom: "1rem" }}>Update Template Image</h3>
+                <div className="form-group">
+                  <label>New Template Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={templateImageInputRef}
+                    onChange={(e) => setTemplateImageFile(e.target.files?.[0] || null)}
+                  />
+                  <small style={{ color: "var(--text-muted)", fontSize: "0.75rem", display: "block", marginTop: "0.25rem" }}>
+                    Upload a PNG, JPG, or WebP image. This will replace the current template background.
+                  </small>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      setEditingTemplateImage(false);
+                      setTemplateImageFile(null);
+                      if (templateImageInputRef.current) templateImageInputRef.current.value = "";
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={saveTemplateImage}
+                    disabled={!templateImageFile || savingTemplateImage}
+                  >
+                    {savingTemplateImage ? (
+                      <>
+                        <div className="loading-spinner" style={{ width: "16px", height: "16px", borderWidth: "2px", margin: 0 }}></div>
+                        Updating...
+                      </>
+                    ) : (
+                      "Update Image"
+                    )}
+                  </button>
+                </div>
+              </div>
             )}
 
             {selectedTemplate && (

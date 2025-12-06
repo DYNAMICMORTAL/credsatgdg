@@ -145,6 +145,69 @@ def delete_template(template_id: str, admin_secret: str):
     return {"message": f"Template '{template_id}' deleted successfully"}
 
 
+@router.post("/templates/{template_id}/image", response_model=schemas.CertificateTemplate)
+async def update_template_image(
+    template_id: str,
+    admin_secret: str = Form(...),
+    image: UploadFile = File(...)
+):
+    verify_admin(admin_secret)
+    try:
+        template = template_manager.get_template(template_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    allowed_types = {
+        "image/png": ".png",
+        "image/jpeg": ".jpg",
+        "image/jpg": ".jpg",
+        "image/webp": ".webp",
+    }
+    suffix = allowed_types.get(image.content_type or "")
+    if not suffix:
+        raise HTTPException(status_code=400, detail="Unsupported file type")
+
+    filename = f"{template_id}{suffix}"
+    content = await image.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    os.makedirs("/tmp/templates", exist_ok=True)
+    tmp_filepath = os.path.join("/tmp/templates", filename)
+    with open(tmp_filepath, "wb") as handle:
+        handle.write(content)
+
+    template_image_url = None
+    try:
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=S3_ENDPOINT,
+            aws_access_key_id=S3_ACCESS_KEY_ID,
+            aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+            config=Config(signature_version='s3v4'),
+            region_name='ap-southeast-1'
+        )
+
+        s3_client.put_object(
+            Bucket='template-images',
+            Key=filename,
+            Body=content,
+            ContentType=image.content_type or 'image/png'
+        )
+
+        template_image_url = supabase.storage.from_('template-images').get_public_url(filename)
+        print(f"Template image updated on Supabase: {template_image_url}")
+    except Exception as e:
+        print(f"Failed to upload template image to Supabase: {e}")
+
+    updates = {"file": filename}
+    if template_image_url:
+        updates["image_url"] = template_image_url
+
+    updated = template_manager.update_template(template_id, updates)
+    return updated
+
+
 
 @router.post("/generate_for_event/{event_id}")
 def generate_certificates_for_event(
