@@ -12,7 +12,10 @@ load_dotenv()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "certificate_template.png")
 FONT_PATH = os.path.join(BASE_DIR, "fonts", "Roboto-Bold.ttf")
-CERT_DIR = os.path.join(BASE_DIR, "..", "certificates")
+
+# Use /tmp for writable directory (Vercel serverless compatible)
+CERT_DIR = "/tmp/certificates" if os.environ.get("VERCEL") else os.path.join(BASE_DIR, "..", "certificates")
+
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 VERIFICATION_URL_TEMPLATE = os.getenv("VERIFICATION_URL_TEMPLATE")
@@ -26,8 +29,17 @@ def generate_code(prefix: str = "APSIT") -> str:
     return f"{prefix}-{suffix}"
 
 def _ensure_template_file(path: str) -> str:
+    """Ensure template file exists, use /tmp for Vercel serverless"""
     if os.path.exists(path):
         return path
+    
+    # For Vercel, create in /tmp instead
+    if os.environ.get("VERCEL"):
+        tmp_template = "/tmp/certificate_template.png"
+        if os.path.exists(tmp_template):
+            return tmp_template
+        path = tmp_template
+    
     os.makedirs(os.path.dirname(path), exist_ok=True)
     template = Image.new('RGB', (1200, 800), color='white')
     draw = ImageDraw.Draw(template)
