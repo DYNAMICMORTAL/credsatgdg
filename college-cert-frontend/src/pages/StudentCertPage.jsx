@@ -146,7 +146,7 @@ export default function StudentCertPage() {
           {/* Certificate Preview */}
           <div style={{ background: "var(--bg-subtle)", padding: "2rem", borderRadius: "var(--radius-lg)", marginBottom: "2rem", textAlign: "center" }}>
             <img 
-              src={`${apiBaseUrl}/${certificate.certificate_path}`} 
+              src={certificate.certificate_path.startsWith('http') ? certificate.certificate_path : `${apiBaseUrl}/${certificate.certificate_path}`} 
               alt="Your Certificate"
               style={{ maxWidth: "100%", height: "auto", borderRadius: "var(--radius-md)", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}
             />
@@ -177,7 +177,7 @@ export default function StudentCertPage() {
           {/* Action Buttons */}
           <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
             <a
-              href={`${apiBaseUrl}/${certificate.certificate_path}`}
+              href={certificate.certificate_path.startsWith('http') ? certificate.certificate_path : `${apiBaseUrl}/${certificate.certificate_path}`}
               download
               className="btn btn-success"
               style={{ flex: 1, justifyContent: "center", minWidth: "200px" }}
