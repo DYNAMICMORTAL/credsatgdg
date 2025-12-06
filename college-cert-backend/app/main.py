@@ -23,9 +23,10 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     allow_credentials=True,
+    expose_headers=["*"],
 )
 
 # Include routers
@@ -33,14 +34,16 @@ app.include_router(events.router, prefix="/api/events", tags=["events"])
 app.include_router(participants.router, prefix="/api/participants", tags=["participants"])
 app.include_router(certificates.router, prefix="/api/certificates", tags=["certificates"])
 
-# Serve static certificate files
+# Serve static certificate files (only in local development, not on Vercel)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CERT_DIR = os.path.join(BASE_DIR, "..", "certificates")
 os.makedirs(CERT_DIR, exist_ok=True)
 os.makedirs(template_manager.TEMPLATES_DIR, exist_ok=True)
 
-app.mount("/certificates", StaticFiles(directory=CERT_DIR), name="certificates")
-app.mount("/template-images", StaticFiles(directory=template_manager.TEMPLATES_DIR), name="template-images")
+# Don't mount static files on Vercel serverless
+if not os.environ.get("VERCEL"):
+    app.mount("/certificates", StaticFiles(directory=CERT_DIR), name="certificates")
+    app.mount("/template-images", StaticFiles(directory=template_manager.TEMPLATES_DIR), name="template-images")
 
 @app.get("/")
 def root():
