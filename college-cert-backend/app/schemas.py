@@ -40,7 +40,7 @@ class Certificate(BaseModel):
     certificate_code: str
     certificate_path: str
     status: str
-    issued_at: datetime
+    issued_at: Optional[datetime] = None
     
     class Config:
         orm_mode = True
