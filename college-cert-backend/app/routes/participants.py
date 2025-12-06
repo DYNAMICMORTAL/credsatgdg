@@ -400,7 +400,6 @@ async def generate_certificate_for_student(token: str):
             layout=layout,
             participant_data=participant_data,
         )
-        )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to generate certificate: {exc}") from exc
     
