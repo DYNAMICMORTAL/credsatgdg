@@ -115,7 +115,7 @@ def merge_layout(template: Dict[str, Any], override: Optional[Dict[str, Any]]) -
 
 def resolve_template_path(template: Dict[str, Any]) -> str:
     candidate = template.get("file", "certificate_template.png")
-    if os.isabs(candidate):
+    if os.path.isabs(candidate):
         return candidate
     
     template_path = os.path.join(TEMPLATES_DIR, candidate)
