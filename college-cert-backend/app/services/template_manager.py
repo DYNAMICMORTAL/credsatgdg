@@ -88,13 +88,21 @@ def update_template(template_id: str, updates: Dict[str, Any]) -> Dict[str, Any]
             if "file" in updates and updates["file"] is not None:
                 merged["file"] = updates["file"]
             if "layout" in updates and updates["layout"] is not None:
-                existing_layout = merged.get("layout", {})
                 layout_updates = updates["layout"]
-                for key, value in layout_updates.items():
-                    if value is None:
-                        continue
-                    existing_layout[key] = {**existing_layout.get(key, {}), **value}
-                merged["layout"] = existing_layout
+                # If layout_updates is a complete layout object, replace it entirely
+                # Otherwise, merge field by field
+                if isinstance(layout_updates, dict):
+                    existing_layout = merged.get("layout", {})
+                    for key, value in layout_updates.items():
+                        if value is None:
+                            continue
+                        # If value is a dict (field config), merge it with existing
+                        if isinstance(value, dict):
+                            existing_layout[key] = {**existing_layout.get(key, {}), **value}
+                        else:
+                            # If value is not a dict, just set it
+                            existing_layout[key] = value
+                    merged["layout"] = existing_layout
             templates[idx] = merged
             payload["templates"] = templates
             _write_payload(payload)
