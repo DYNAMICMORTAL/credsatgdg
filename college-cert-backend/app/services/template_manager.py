@@ -115,6 +115,25 @@ def merge_layout(template: Dict[str, Any], override: Optional[Dict[str, Any]]) -
 
 def resolve_template_path(template: Dict[str, Any]) -> str:
     candidate = template.get("file", "certificate_template.png")
-    if os.path.isabs(candidate):
+    if os.isabs(candidate):
         return candidate
-    return os.path.join(TEMPLATES_DIR, candidate)
+    
+    template_path = os.path.join(TEMPLATES_DIR, candidate)
+    
+    # For Vercel serverless, copy template to /tmp if it doesn't exist there
+    if os.environ.get("VERCEL"):
+        tmp_template_path = os.path.join("/tmp", candidate)
+        
+        # If template exists in /tmp, use it
+        if os.path.exists(tmp_template_path):
+            return tmp_template_path
+        
+        # Copy from TEMPLATES_DIR to /tmp if source exists
+        if os.path.exists(template_path):
+            import shutil
+            os.makedirs("/tmp", exist_ok=True)
+            shutil.copy(template_path, tmp_template_path)
+            return tmp_template_path
+    
+    return template_path
+
