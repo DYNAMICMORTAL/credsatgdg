@@ -46,40 +46,42 @@
       "file": "perplexity.png",
       "layout": {
         "name": {
-          "x": 0.43333333333333335,
-          "y": 0.535490989334314,
-          "font_size": 60,
+          "x": 0.5,
+          "y": 0.47,
+          "font_size": 48,
           "align": "center",
           "color": "#000000",
           "font_family": null
         },
         "event": {
-          "x": 0.5833333333333334,
-          "y": 0.535490989334314,
-          "font_size": 40,
+          "x": 0.5,
+          "y": 0.62,
+          "font_size": 32,
           "align": "center",
-          "color": "#000000"
+          "color": "#8B6914"
         },
         "date": {
-          "x": 0.8481481481481481,
-          "y": 0.2739569286093744,
-          "font_size": 30,
-          "align": "left",
-          "color": "#000000",
-          "font_family": null
-        },
-        "code": {
-          "x": 1002.290076335878,
-          "y": 700.5416666666666,
-          "font_size": 30,
+          "x": 0.85,
+          "y": 0.27,
+          "font_size": 20,
           "align": "right",
           "color": "#000000",
-          "font_family": null
+          "font_family": null,
+          "format": "{date}"
+        },
+        "code": {
+          "x": 0.92,
+          "y": 0.88,
+          "font_size": 18,
+          "align": "right",
+          "color": "#666666",
+          "font_family": null,
+          "format": "{code}"
         },
         "qr": {
           "x": 0.08,
-          "y": 0.7,
-          "size": 0.1
+          "y": 0.78,
+          "size": 0.12
         }
       }
     }

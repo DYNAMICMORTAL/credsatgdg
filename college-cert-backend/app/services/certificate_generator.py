@@ -180,12 +180,16 @@ def generate_certificate_image(
 
     date_cfg = layout.get("date", {})
     if date_cfg:
-        date_text = f"Issued on: {event_date}"
+        # Use custom format if specified, otherwise use default
+        date_format = date_cfg.get("format", "Issued on: {date}")
+        date_text = date_format.replace("{date}", event_date)
         _draw_text(draw, date_text, date_cfg, w, h)
 
     code_cfg = layout.get("code", {})
     if code_cfg:
-        code_text = f"Code: {code}"
+        # Use custom format if specified, otherwise use default
+        code_format = code_cfg.get("format", "Code: {code}")
+        code_text = code_format.replace("{code}", code)
         _draw_text(draw, code_text, code_cfg, w, h)
 
     # Handle custom fields from participant data
