@@ -97,11 +97,13 @@ class CertificateTemplate(BaseModel):
     name: str
     file: str
     layout: TemplateLayout
+    image_url: Optional[str] = None
 
 
 class TemplateUpdateRequest(BaseModel):
     name: Optional[str] = None
     file: Optional[str] = None
+    image_url: Optional[str] = None
     layout: Optional[dict] = None  # Changed to dict to accept any layout structure
 
 

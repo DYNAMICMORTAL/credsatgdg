@@ -89,6 +89,10 @@ def update_template(template_id: str, updates: Dict[str, Any]) -> Dict[str, Any]
                 merged["name"] = updates["name"]
             if "file" in updates and updates["file"] is not None:
                 merged["file"] = updates["file"]
+            if "image_url" in updates and updates["image_url"] is not None:
+                merged["image_url"] = updates["image_url"]
+            elif "image_url" in updates and updates["image_url"] is None:
+                merged.pop("image_url", None)
             if "layout" in updates and updates["layout"] is not None:
                 layout_updates = updates["layout"]
                 # If layout_updates is a complete layout object, replace it entirely
@@ -109,6 +113,19 @@ def update_template(template_id: str, updates: Dict[str, Any]) -> Dict[str, Any]
             payload["templates"] = templates
             _write_payload(payload)
             return merged
+    raise ValueError(f"Template '{template_id}' not found")
+
+
+def delete_template(template_id: str) -> Dict[str, Any]:
+    """Delete a template and return the deleted template data"""
+    payload = _load_payload()
+    templates = payload.get("templates", [])
+    for idx, template in enumerate(templates):
+        if template.get("id") == template_id:
+            deleted = templates.pop(idx)
+            payload["templates"] = templates
+            _write_payload(payload)
+            return deleted
     raise ValueError(f"Template '{template_id}' not found")
 
 

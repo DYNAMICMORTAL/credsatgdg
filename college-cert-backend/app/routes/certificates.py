@@ -116,6 +116,36 @@ def update_template(template_id: str, payload: schemas.TemplateUpdateRequest, ad
     return updated
 
 
+@router.delete("/templates/{template_id}")
+def delete_template(template_id: str, admin_secret: str):
+    verify_admin(admin_secret)
+    try:
+        deleted = template_manager.delete_template(template_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    
+    # Try to delete image from Supabase Storage if it has an image_url
+    if deleted.get("image_url"):
+        try:
+            filename = deleted["file"]
+            s3_client = boto3.client(
+                's3',
+                endpoint_url=S3_ENDPOINT,
+                aws_access_key_id=S3_ACCESS_KEY_ID,
+                aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+                config=Config(signature_version='s3v4'),
+                region_name='ap-southeast-1'
+            )
+            s3_client.delete_object(Bucket='template-images', Key=filename)
+            print(f"Deleted template image from Supabase: {filename}")
+        except Exception as e:
+            print(f"Failed to delete template image from Supabase: {e}")
+            # Continue anyway, template config is already deleted
+    
+    return {"message": f"Template '{template_id}' deleted successfully"}
+
+
+
 @router.post("/generate_for_event/{event_id}")
 def generate_certificates_for_event(
     event_id: int,
