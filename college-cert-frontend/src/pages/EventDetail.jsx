@@ -962,9 +962,13 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
   const layout = (editable && layoutDraft) ? layoutDraft : (template.layout || {});
   const baseWidth = 1200;
   const baseHeight = 800;
-  const imageUrl = template.file
-    ? (template.file.startsWith("http") ? template.file : `${apiBaseUrl}/template-images/${template.file}`)
-    : "";
+  
+  // Use image_url from Supabase if available, otherwise construct URL from file
+  const imageUrl = template.image_url 
+    ? template.image_url 
+    : (template.file
+        ? (template.file.startsWith("http") ? template.file : `${apiBaseUrl}/template-images/${template.file}`)
+        : "");
 
   if (!imageUrl) {
     return (

@@ -58,7 +58,7 @@ def get_template(template_id: str) -> Dict[str, Any]:
     raise ValueError(f"Template '{template_id}' not found")
 
 
-def add_template(template_id: str, name: str, filename: str, layout: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def add_template(template_id: str, name: str, filename: str, layout: Optional[Dict[str, Any]] = None, image_url: Optional[str] = None) -> Dict[str, Any]:
     payload = _load_payload()
     templates = payload.get("templates", [])
     if any(t.get("id") == template_id for t in templates):
@@ -71,6 +71,8 @@ def add_template(template_id: str, name: str, filename: str, layout: Optional[Di
         "file": filename,
         "layout": layout_payload,
     }
+    if image_url:
+        new_template["image_url"] = image_url
     templates.append(new_template)
     payload["templates"] = templates
     _write_payload(payload)

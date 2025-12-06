@@ -1,5 +1,7 @@
 import json
 import os
+import boto3
+from botocore.client import Config
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
@@ -11,6 +13,12 @@ from ..services import template_manager
 router = APIRouter()
 
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "secret")
+
+# Supabase S3 configuration for template images
+SUPABASE_PROJECT_ID = os.getenv("SUPABASE_URL", "").split("//")[1].split(".")[0] if os.getenv("SUPABASE_URL") else ""
+S3_ENDPOINT = f"https://{SUPABASE_PROJECT_ID}.supabase.co/storage/v1/s3"
+S3_ACCESS_KEY_ID = os.getenv("SUPABASE_S3_ACCESS_KEY_ID")
+S3_SECRET_ACCESS_KEY = os.getenv("SUPABASE_S3_SECRET_ACCESS_KEY")
 
 def verify_admin(secret: str):
     if secret != ADMIN_SECRET:
@@ -47,8 +55,38 @@ async def upload_template(
     content = await image.read()
     if not content:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    
+    # Save locally first
     with open(filepath, "wb") as handle:
         handle.write(content)
+    
+    # Upload template image to Supabase Storage
+    template_image_url = None
+    try:
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=S3_ENDPOINT,
+            aws_access_key_id=S3_ACCESS_KEY_ID,
+            aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+            config=Config(signature_version='s3v4'),
+            region_name='ap-southeast-1'
+        )
+        
+        # Upload to template-images bucket
+        s3_client.put_object(
+            Bucket='template-images',
+            Key=filename,
+            Body=content,
+            ContentType=image.content_type or 'image/png'
+        )
+        
+        # Get public URL
+        template_image_url = supabase.storage.from_('template-images').get_public_url(filename)
+        print(f"Template image uploaded to Supabase: {template_image_url}")
+    except Exception as e:
+        print(f"Failed to upload template image to Supabase: {e}")
+        # Continue anyway, template will work from local storage
+    
     layout_payload = None
     if layout:
         try:
@@ -56,7 +94,7 @@ async def upload_template(
         except json.JSONDecodeError as exc:
             raise HTTPException(status_code=400, detail=f"Invalid layout JSON: {exc}") from exc
     try:
-        return template_manager.add_template(safe_id, name, filename, layout_payload)
+        return template_manager.add_template(safe_id, name, filename, layout_payload, template_image_url)
     except ValueError as exc:
         if os.path.exists(filepath):
             os.remove(filepath)
