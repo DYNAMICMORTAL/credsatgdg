@@ -5,6 +5,8 @@ from PIL import Image, ImageDraw, ImageFont
 import qrcode
 from dotenv import load_dotenv
 from ..database import supabase
+import boto3
+from botocore.client import Config
 
 from . import template_manager
 
@@ -21,6 +23,13 @@ BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 VERIFICATION_URL_TEMPLATE = os.getenv("VERIFICATION_URL_TEMPLATE")
 VERIFICATION_BASE_URL = os.getenv("VERIFICATION_BASE_URL")
+
+# Supabase S3 configuration
+SUPABASE_PROJECT_ID = os.getenv("SUPABASE_URL", "").split("//")[1].split(".")[0] if os.getenv("SUPABASE_URL") else ""
+S3_ENDPOINT = f"https://{SUPABASE_PROJECT_ID}.supabase.co/storage/v1/s3"
+S3_ACCESS_KEY_ID = os.getenv("SUPABASE_S3_ACCESS_KEY_ID")
+S3_SECRET_ACCESS_KEY = os.getenv("SUPABASE_S3_SECRET_ACCESS_KEY")
+S3_BUCKET_NAME = "certificates"
 
 os.makedirs(CERT_DIR, exist_ok=True)
 
@@ -210,17 +219,29 @@ def generate_certificate_image(
     filepath = os.path.join(CERT_DIR, filename)
     base.save(filepath)
 
-    # Upload to Supabase Storage (free tier: 1GB)
+    # Upload to Supabase Storage using S3 API
     try:
+        # Initialize S3 client with Supabase credentials
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=S3_ENDPOINT,
+            aws_access_key_id=S3_ACCESS_KEY_ID,
+            aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+            config=Config(signature_version='s3v4'),
+            region_name='ap-southeast-1'
+        )
+        
+        # Upload file
         with open(filepath, 'rb') as f:
-            supabase.storage.from_('certificates').upload(
-                filename,
-                f.read(),
-                file_options={"content-type": "image/png", "upsert": "true"}
+            s3_client.put_object(
+                Bucket=S3_BUCKET_NAME,
+                Key=filename,
+                Body=f.read(),
+                ContentType='image/png'
             )
         
         # Get public URL
-        public_url = supabase.storage.from_('certificates').get_public_url(filename)
+        public_url = supabase.storage.from_(S3_BUCKET_NAME).get_public_url(filename)
         
         # Clean up local file
         if os.path.exists(filepath):
@@ -229,5 +250,5 @@ def generate_certificate_image(
         return public_url
     except Exception as e:
         # Fallback to local path if upload fails
-        print(f"Supabase upload failed: {e}")
+        print(f"Supabase S3 upload failed: {e}")
         return f"certificates/{filename}"
