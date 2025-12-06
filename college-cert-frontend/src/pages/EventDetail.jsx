@@ -692,6 +692,79 @@ export default function EventDetail() {
               </div>
             )}
 
+            {!selectedTemplateId && !templatesLoading && (
+               <div style={{ background: "var(--bg-subtle)", padding: "2rem", borderRadius: "var(--radius-lg)", border: "2px dashed var(--border-color)", marginTop: "1.5rem" }}>
+                 <h3 style={{ marginBottom: "1.5rem", fontSize: "1.25rem", fontWeight: "700" }}>
+                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ display: "inline", verticalAlign: "middle", marginRight: "0.5rem" }}>
+                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                     <polyline points="17 8 12 3 7 8"></polyline>
+                     <line x1="12" y1="3" x2="12" y2="15"></line>
+                   </svg>
+                   Upload New Template
+                 </h3>
+                 <form onSubmit={handleTemplateUpload}>
+                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+                     <div className="form-group">
+                       <label>Template ID</label>
+                       <input 
+                         type="text" 
+                         placeholder="e.g. classic-2025" 
+                         value={templateForm.templateId} 
+                         onChange={e => setTemplateForm({...templateForm, templateId: e.target.value})} 
+                         required 
+                       />
+                       <small style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: "0.25rem", display: "block" }}>
+                         Unique identifier for this template
+                       </small>
+                     </div>
+                     <div className="form-group">
+                       <label>Template Name</label>
+                       <input 
+                         type="text" 
+                         placeholder="e.g. Classic Certificate" 
+                         value={templateForm.name} 
+                         onChange={e => setTemplateForm({...templateForm, name: e.target.value})} 
+                         required 
+                       />
+                       <small style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: "0.25rem", display: "block" }}>
+                         Display name for the template
+                       </small>
+                     </div>
+                   </div>
+                   <div className="form-group">
+                     <label>Certificate Template Image</label>
+                     <input 
+                       type="file" 
+                       accept="image/*" 
+                       ref={templateFileInputRef}
+                       onChange={e => setTemplateFile(e.target.files?.[0])} 
+                       required 
+                     />
+                     <small style={{ color: "var(--text-muted)", fontSize: "0.75rem", marginTop: "0.25rem", display: "block" }}>
+                       Upload a PNG, JPG, or WebP image (recommended size: 1200x800px)
+                     </small>
+                   </div>
+                   <button type="submit" className="btn btn-primary" disabled={templateUploading} style={{ marginTop: "1rem" }}>
+                     {templateUploading ? (
+                       <>
+                         <div className="loading-spinner" style={{ width: "16px", height: "16px", borderWidth: "2px", margin: 0 }}></div>
+                         Uploading Template...
+                       </>
+                     ) : (
+                       <>
+                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                           <polyline points="17 8 12 3 7 8"></polyline>
+                           <line x1="12" y1="3" x2="12" y2="15"></line>
+                         </svg>
+                         Upload Template
+                       </>
+                     )}
+                   </button>
+                 </form>
+               </div>
+            )}
+
             {selectedTemplate && (
               <div className="flex gap-4 mt-4" style={{ flexDirection: isEditingLayout ? "row" : "column" }}>
                 <div style={{ flex: 1 }}>
