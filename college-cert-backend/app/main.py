@@ -17,7 +17,7 @@ app = FastAPI(title="College Certificate Management API")
 origins = [
     os.getenv("FRONTEND_URL", "http://localhost:5173"),
     "http://localhost:5173",
-    "https://cert.yourdomain.xyz",  # Replace with your actual frontend domain
+    "https://credsatgdg.vercel.app",  # Your production frontend
 ]
 
 app.add_middleware(
