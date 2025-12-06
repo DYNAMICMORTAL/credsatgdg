@@ -392,12 +392,14 @@ async def generate_certificate_for_student(token: str):
     # Generate certificate image
     try:
         cert_path = generate_certificate_image(
-            template=template,
-            participant_data=participant_data,
+            participant_name=participant.get("name", ""),
             event_name=event["name"],
             event_date=event.get("date", ""),
-            certificate_code=cert_code,
-            layout_override=layout,
+            code=cert_code,
+            template=template,
+            layout=layout,
+            participant_data=participant_data,
+        )
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to generate certificate: {exc}") from exc
