@@ -371,7 +371,7 @@ async def generate_certificate_for_student(token: str):
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     
-    layout = template.layout
+    layout = template.get("layout", {})
     
     # Generate certificate code
     cert_code = generate_code()
