@@ -49,15 +49,16 @@ async def upload_template(
     safe_id = safe_id.strip("-_")
     if not safe_id:
         raise HTTPException(status_code=400, detail="Template ID must contain alphanumeric characters")
-    os.makedirs(template_manager.TEMPLATES_DIR, exist_ok=True)
+    
     filename = f"{safe_id}{suffix}"
-    filepath = os.path.join(template_manager.TEMPLATES_DIR, filename)
     content = await image.read()
     if not content:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
     
-    # Save locally first
-    with open(filepath, "wb") as handle:
+    # Save to /tmp directory (writable on Vercel)
+    os.makedirs("/tmp/templates", exist_ok=True)
+    tmp_filepath = os.path.join("/tmp/templates", filename)
+    with open(tmp_filepath, "wb") as handle:
         handle.write(content)
     
     # Upload template image to Supabase Storage
@@ -96,8 +97,8 @@ async def upload_template(
     try:
         return template_manager.add_template(safe_id, name, filename, layout_payload, template_image_url)
     except ValueError as exc:
-        if os.path.exists(filepath):
-            os.remove(filepath)
+        if os.path.exists(tmp_filepath):
+            os.remove(tmp_filepath)
         raise HTTPException(status_code=400, detail=str(exc))
 
 @router.get("/templates", response_model=list[schemas.CertificateTemplate])
