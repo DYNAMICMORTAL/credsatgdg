@@ -672,29 +672,25 @@ export default function EventDetail() {
               )}
             </div>
 
-            <div style={{ marginBottom: "2rem" }}>
-              <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "600" }}>Select Template</label>
-              {templatesLoading ? (
-                <div className="flex items-center gap-2" style={{ padding: "1rem" }}>
-                  <div className="loading-spinner" style={{ width: "20px", height: "20px" }}></div>
-                  <span style={{ color: "var(--text-muted)" }}>Loading templates...</span>
-                </div>
-              ) : templates.length === 0 ? (
-                <div className="alert alert-info">No templates available. Upload a template below.</div>
-              ) : (
+            {templatesLoading ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "2rem" }}>
+                <div className="loading-spinner" style={{ width: "32px", height: "32px" }}></div>
+              </div>
+            ) : (
+              <div className="form-group">
+                <label htmlFor="template-select">Select Template</label>
                 <select
+                  id="template-select"
                   value={selectedTemplateId}
                   onChange={(e) => setSelectedTemplateId(e.target.value)}
-                  style={{ padding: "0.75rem 1rem", fontSize: "1rem", width: "100%", maxWidth: "400px" }}
                 >
                   {templates.map((tpl) => (
-                    <option key={tpl.id} value={tpl.id}>
-                      {tpl.name}
-                    </option>
+                    <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
                   ))}
+                  <option value="">+ Upload New Template</option>
                 </select>
-              )}
-            </div>
+              </div>
+            )}
 
             {selectedTemplate && (
               <div className="flex gap-4 mt-4" style={{ flexDirection: isEditingLayout ? "row" : "column" }}>
