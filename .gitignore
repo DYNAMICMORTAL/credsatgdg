@@ -1,4 +1,80 @@
-*.ps1
+# Environment Files (CRITICAL - Never commit these!)
+.env
+.env.local
+.env.production
+.env.development
+*.env.backup
 
-*.csv
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Certificates (Generated files)
+certificates/*.png
+certificates/*.jpg
+certificates/*.pdf
+!certificates/.gitkeep
+
+# Template Images (Keep this if you want to track templates in git)
+# app/templates/*.png
+# app/templates/*.jpg
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Test Files (Keep .csv for samples)
+# *.csv
+
+# Deployment
+.vercel/
+.netlify/
+.railway/
+
+# Backups
+*.backup
+*.bak
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+
+# Documentation (if you want to exclude .md files)
 *.md
+!README.md
+!college-cert-backend/README.md
+!college-cert-frontend/README.md
