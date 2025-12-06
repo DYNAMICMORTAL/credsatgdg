@@ -4,6 +4,7 @@ import string
 from PIL import Image, ImageDraw, ImageFont
 import qrcode
 from dotenv import load_dotenv
+from ..database import supabase
 
 from . import template_manager
 
@@ -209,4 +210,24 @@ def generate_certificate_image(
     filepath = os.path.join(CERT_DIR, filename)
     base.save(filepath)
 
-    return f"certificates/{filename}"
+    # Upload to Supabase Storage (free tier: 1GB)
+    try:
+        with open(filepath, 'rb') as f:
+            supabase.storage.from_('certificates').upload(
+                filename,
+                f.read(),
+                file_options={"content-type": "image/png", "upsert": "true"}
+            )
+        
+        # Get public URL
+        public_url = supabase.storage.from_('certificates').get_public_url(filename)
+        
+        # Clean up local file
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        
+        return public_url
+    except Exception as e:
+        # Fallback to local path if upload fails
+        print(f"Supabase upload failed: {e}")
+        return f"certificates/{filename}"
