@@ -21,8 +21,10 @@ DEFAULT_LAYOUT = {
     "qr": {"x": 0.08, "y": 0.7, "size": 0.18}
 }
 
-SUPABASE_PROJECT_ID = os.getenv("SUPABASE_URL", "").split("//")[1].split(".")[0] if os.getenv("SUPABASE_URL") else ""
-S3_ENDPOINT = f"https://{SUPABASE_PROJECT_ID}.supabase.co/storage/v1/s3"
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_PROJECT_ID = SUPABASE_URL.split("//")[1].split(".")[0] if SUPABASE_URL else ""
+S3_ENDPOINT = f"https://{SUPABASE_PROJECT_ID}.supabase.co/storage/v1/s3" if SUPABASE_PROJECT_ID else None
+PUBLIC_STORAGE_ROOT = f"{SUPABASE_URL.rstrip('/')}/storage/v1/object/public" if SUPABASE_URL else None
 S3_ACCESS_KEY_ID = os.getenv("SUPABASE_S3_ACCESS_KEY_ID")
 S3_SECRET_ACCESS_KEY = os.getenv("SUPABASE_S3_SECRET_ACCESS_KEY")
 TEMPLATE_BUCKET = os.getenv("TEMPLATE_BUCKET_NAME", "template-certificates")
@@ -30,6 +32,8 @@ TEMPLATE_BUCKET = os.getenv("TEMPLATE_BUCKET_NAME", "template-certificates")
 
 @lru_cache(maxsize=1)
 def get_storage_client():
+    if not S3_ENDPOINT:
+        raise RuntimeError("Supabase S3 endpoint is not configured")
     if not (S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY):
         raise RuntimeError("Supabase S3 credentials are not configured")
     return boto3.client(
@@ -40,6 +44,39 @@ def get_storage_client():
         config=Config(signature_version="s3v4"),
         region_name="ap-southeast-1",
     )
+
+
+def _extract_public_url(result: Any) -> Optional[str]:
+    if not result:
+        return None
+    if isinstance(result, str):
+        return result
+    if isinstance(result, dict):
+        for key in ("publicUrl", "publicURL", "signedUrl", "signedURL"):
+            if key in result and isinstance(result[key], str):
+                return result[key]
+        data = result.get("data") if isinstance(result.get("data"), dict) else None
+        if data:
+            for key in ("publicUrl", "publicURL", "signedUrl", "signedURL"):
+                if key in data and isinstance(data[key], str):
+                    return data[key]
+    return None
+
+
+def _compose_public_url(storage_key: Optional[str]) -> Optional[str]:
+    if not (storage_key and PUBLIC_STORAGE_ROOT):
+        return None
+    safe_key = storage_key.lstrip("/")
+    return f"{PUBLIC_STORAGE_ROOT}/{TEMPLATE_BUCKET}/{safe_key}"
+
+
+def _normalize_image_url(raw: Any, storage_key: Optional[str] = None) -> Optional[str]:
+    parsed = _extract_public_url(raw)
+    if parsed:
+        return parsed
+    if isinstance(raw, str):
+        return raw
+    return _compose_public_url(storage_key)
 
 
 def _default_layout_copy() -> Dict[str, Any]:
@@ -59,12 +96,14 @@ def _parse_layout(raw: Any) -> Dict[str, Any]:
 
 def _serialize_template(record: Dict[str, Any]) -> Dict[str, Any]:
     layout = _parse_layout(record.get("layout"))
+    storage_key = record.get("storage_key")
+    image_url = _normalize_image_url(record.get("image_url"), storage_key)
     return {
         "id": record.get("id"),
         "name": record.get("name"),
-        "file": record.get("storage_key"),
+        "file": storage_key,
         "layout": layout,
-        "image_url": record.get("image_url"),
+        "image_url": image_url,
     }
 
 
@@ -93,7 +132,7 @@ def add_template(template_id: str, name: str, filename: str, layout: Optional[Di
         "id": template_id,
         "name": name,
         "storage_key": filename,
-        "image_url": image_url,
+        "image_url": _normalize_image_url(image_url, filename),
         "layout": layout_payload,
     }
     inserted = supabase.table(TEMPLATES_TABLE).insert(row).execute()
@@ -110,19 +149,9 @@ def update_template(template_id: str, updates: Dict[str, Any]) -> Dict[str, Any]
     if "file" in updates and updates["file"] is not None:
         merged["file"] = updates["file"]
     if "image_url" in updates:
-        merged["image_url"] = updates["image_url"]
+        merged["image_url"] = _normalize_image_url(updates["image_url"], merged.get("file"))
     if "layout" in updates and updates["layout"] is not None:
-        layout_updates = updates["layout"]
-        if isinstance(layout_updates, dict):
-            base_layout = merged.get("layout", {})
-            for key, value in layout_updates.items():
-                if value is None:
-                    continue
-                if isinstance(value, dict):
-                    base_layout[key] = {**base_layout.get(key, {}), **value}
-                else:
-                    base_layout[key] = value
-            merged["layout"] = base_layout
+        merged["layout"] = _parse_layout(updates["layout"])
 
     payload = {
         "name": merged["name"],
