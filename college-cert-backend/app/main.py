@@ -13,31 +13,19 @@ load_dotenv()
 
 app = FastAPI(title="College Certificate Management API")
 
-
-def _collect_origins(*values: str | None) -> set[str]:
-    collected: set[str] = set()
-    for value in values:
-        if not value:
-            continue
-        normalized = value.replace("\n", ",").replace(" ", ",")
-        for origin in normalized.split(","):
-            cleaned = origin.strip().rstrip("/")
-            if cleaned:
-                collected.add(cleaned)
-    return collected
-
-
 # CORS configuration
 frontends: set[str] = set()
-frontends.update(_collect_origins(os.getenv("FRONTEND_URL")))
-frontends.update(_collect_origins(os.getenv("FRONTEND_URLS")))
-frontends.update(_collect_origins(os.getenv("ADDITIONAL_CORS_ORIGINS")))
-
-# Always include local dev and the deployed dashboard
+default_frontend = os.getenv("FRONTEND_URL", "http://localhost:5173").strip()
+if default_frontend:
+    frontends.add(default_frontend.rstrip("/"))
 frontends.add("http://localhost:5173")
-frontends.add("http://127.0.0.1:5173")
 frontends.add("https://credsatgdg.vercel.app")
-frontends.add("https://credsatgdbg.vercel.app")
+
+additional_origins = os.getenv("ADDITIONAL_CORS_ORIGINS", "")
+for origin in additional_origins.split(","):
+    cleaned = origin.strip().rstrip("/")
+    if cleaned:
+        frontends.add(cleaned)
 
 allow_all_origins = os.getenv("ALLOW_ALL_CORS", "false").lower() == "true"
 allow_credentials = os.getenv("ALLOW_CREDENTIALS", "true").lower() == "true"
@@ -60,9 +48,7 @@ else:
         "allow_origins": allowed_list,
         "allow_credentials": allow_credentials,
     })
-    cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX")
-    if not cors_origin_regex and os.getenv("ENABLE_VERCEL_WILDCARD", "true").lower() == "true":
-        cors_origin_regex = r"https://.*\.vercel\.app"
+    cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", r"https://.*\.vercel\.app")
     if cors_origin_regex:
         cors_kwargs["allow_origin_regex"] = cors_origin_regex
 
