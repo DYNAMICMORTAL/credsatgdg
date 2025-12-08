@@ -42,6 +42,43 @@ def get_storage_client():
     )
 
 
+def _extract_public_url(result: Any) -> Optional[str]:
+    if isinstance(result, str):
+        return result
+    if isinstance(result, dict):
+        if "publicUrl" in result:
+            return result.get("publicUrl")
+        data = result.get("data") if isinstance(result.get("data"), dict) else None
+        if data:
+            return data.get("publicUrl") or data.get("public_url")
+    return None
+
+
+def _build_image_url(storage_key: Optional[str], fallback: Optional[str] = None) -> Optional[str]:
+    if fallback:
+        return fallback
+    if not storage_key:
+        return None
+    try:
+        public_url = supabase.storage.from_(TEMPLATE_BUCKET).get_public_url(storage_key)
+        parsed = _extract_public_url(public_url)
+        if parsed:
+            return parsed
+    except Exception as exc:
+        print(f"Failed to get Supabase public URL for template image: {exc}")
+    try:
+        client = get_storage_client()
+        presigned = client.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": TEMPLATE_BUCKET, "Key": storage_key},
+            ExpiresIn=3600,
+        )
+        return presigned
+    except Exception as exc:
+        print(f"Failed to create presigned URL for template image: {exc}")
+    return None
+
+
 def _default_layout_copy() -> Dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_LAYOUT))
 
@@ -59,12 +96,14 @@ def _parse_layout(raw: Any) -> Dict[str, Any]:
 
 def _serialize_template(record: Dict[str, Any]) -> Dict[str, Any]:
     layout = _parse_layout(record.get("layout"))
+    storage_key = record.get("storage_key")
+    image_url = _build_image_url(storage_key, record.get("image_url"))
     return {
         "id": record.get("id"),
         "name": record.get("name"),
-        "file": record.get("storage_key"),
+        "file": storage_key,
         "layout": layout,
-        "image_url": record.get("image_url"),
+        "image_url": image_url,
     }
 
 
@@ -114,15 +153,7 @@ def update_template(template_id: str, updates: Dict[str, Any]) -> Dict[str, Any]
     if "layout" in updates and updates["layout"] is not None:
         layout_updates = updates["layout"]
         if isinstance(layout_updates, dict):
-            base_layout = merged.get("layout", {})
-            for key, value in layout_updates.items():
-                if value is None:
-                    continue
-                if isinstance(value, dict):
-                    base_layout[key] = {**base_layout.get(key, {}), **value}
-                else:
-                    base_layout[key] = value
-            merged["layout"] = base_layout
+            merged["layout"] = json.loads(json.dumps(layout_updates))
 
     payload = {
         "name": merged["name"],
