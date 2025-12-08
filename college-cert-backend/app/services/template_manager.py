@@ -1,10 +1,17 @@
 import json
 import os
+from functools import lru_cache
 from typing import Any, Dict, List, Optional
+
+import boto3
+from botocore.client import Config
+
+from ..database import supabase
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-CONFIG_PATH = os.path.join(TEMPLATES_DIR, "templates_config.json")
+CACHE_DIR = "/tmp/template-images" if os.environ.get("VERCEL") else os.path.join(TEMPLATES_DIR, "cache")
+TEMPLATES_TABLE = "certificate_templates"
 
 DEFAULT_LAYOUT = {
     "name": {"x": 0.5, "y": 0.4, "font_size": 60, "align": "center", "color": "#000000"},
@@ -14,123 +21,128 @@ DEFAULT_LAYOUT = {
     "qr": {"x": 0.08, "y": 0.7, "size": 0.18}
 }
 
+SUPABASE_PROJECT_ID = os.getenv("SUPABASE_URL", "").split("//")[1].split(".")[0] if os.getenv("SUPABASE_URL") else ""
+S3_ENDPOINT = f"https://{SUPABASE_PROJECT_ID}.supabase.co/storage/v1/s3"
+S3_ACCESS_KEY_ID = os.getenv("SUPABASE_S3_ACCESS_KEY_ID")
+S3_SECRET_ACCESS_KEY = os.getenv("SUPABASE_S3_SECRET_ACCESS_KEY")
+TEMPLATE_BUCKET = os.getenv("TEMPLATE_BUCKET_NAME", "template-certificates")
+
+
+@lru_cache(maxsize=1)
+def get_storage_client():
+    if not (S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY):
+        raise RuntimeError("Supabase S3 credentials are not configured")
+    return boto3.client(
+        "s3",
+        endpoint_url=S3_ENDPOINT,
+        aws_access_key_id=S3_ACCESS_KEY_ID,
+        aws_secret_access_key=S3_SECRET_ACCESS_KEY,
+        config=Config(signature_version="s3v4"),
+        region_name="ap-southeast-1",
+    )
+
 
 def _default_layout_copy() -> Dict[str, Any]:
     return json.loads(json.dumps(DEFAULT_LAYOUT))
 
 
-def _ensure_config_file() -> None:
-    os.makedirs(TEMPLATES_DIR, exist_ok=True)
-    if not os.path.exists(CONFIG_PATH):
-        default_payload = {
-            "templates": [
-                {
-                    "id": "default",
-                    "name": "Default Template",
-                    "file": "certificate_template.png",
-                    "layout": _default_layout_copy()
-                }
-            ]
-        }
-        with open(CONFIG_PATH, "w", encoding="utf-8") as handle:
-            json.dump(default_payload, handle, indent=2)
+def _parse_layout(raw: Any) -> Dict[str, Any]:
+    if not raw:
+        return _default_layout_copy()
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return _default_layout_copy()
+    return json.loads(json.dumps(raw))
 
 
-def _load_payload() -> Dict[str, Any]:
-    _ensure_config_file()
-    with open(CONFIG_PATH, "r", encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def _write_payload(payload: Dict[str, Any]) -> None:
-    with open(CONFIG_PATH, "w", encoding="utf-8") as handle:
-        json.dump(payload, handle, indent=2)
+def _serialize_template(record: Dict[str, Any]) -> Dict[str, Any]:
+    layout = _parse_layout(record.get("layout"))
+    return {
+        "id": record.get("id"),
+        "name": record.get("name"),
+        "file": record.get("storage_key"),
+        "layout": layout,
+        "image_url": record.get("image_url"),
+    }
 
 
 def list_templates() -> List[Dict[str, Any]]:
-    return _load_payload().get("templates", [])
+    res = supabase.table(TEMPLATES_TABLE).select("*").execute()
+    records = res.data or []
+    return [_serialize_template(rec) for rec in records]
 
 
 def get_template(template_id: str) -> Dict[str, Any]:
-    for template in list_templates():
-        if template.get("id") == template_id:
-            return template
-    raise ValueError(f"Template '{template_id}' not found")
+    res = supabase.table(TEMPLATES_TABLE).select("*").eq("id", template_id).limit(1).execute()
+    record = res.data[0] if res.data else None
+    if not record:
+        raise ValueError(f"Template '{template_id}' not found")
+    return _serialize_template(record)
 
 
 def add_template(template_id: str, name: str, filename: str, layout: Optional[Dict[str, Any]] = None, image_url: Optional[str] = None) -> Dict[str, Any]:
-    payload = _load_payload()
-    templates = payload.get("templates", [])
-    if any(t.get("id") == template_id for t in templates):
+    # Ensure template does not already exist
+    res = supabase.table(TEMPLATES_TABLE).select("id").eq("id", template_id).limit(1).execute()
+    if res.data:
         raise ValueError(f"Template '{template_id}' already exists")
-    layout_payload = layout or (templates[0]["layout"] if templates else _default_layout_copy())
-    layout_payload = json.loads(json.dumps(layout_payload))
-    new_template = {
+
+    layout_payload = _parse_layout(layout) if layout else _default_layout_copy()
+    row = {
         "id": template_id,
         "name": name,
-        "file": filename,
+        "storage_key": filename,
+        "image_url": image_url,
         "layout": layout_payload,
     }
-    if image_url:
-        new_template["image_url"] = image_url
-    templates.append(new_template)
-    payload["templates"] = templates
-    _write_payload(payload)
-    return new_template
+    inserted = supabase.table(TEMPLATES_TABLE).insert(row).execute()
+    record = inserted.data[0] if inserted.data else row
+    return _serialize_template(record)
 
 
 def update_template(template_id: str, updates: Dict[str, Any]) -> Dict[str, Any]:
-    payload = _load_payload()
-    templates = payload.get("templates", [])
-    for idx, template in enumerate(templates):
-        if template.get("id") == template_id:
-            merged = template.copy()
-            if "name" in updates and updates["name"] is not None:
-                merged["name"] = updates["name"]
-            if "file" in updates and updates["file"] is not None:
-                merged["file"] = updates["file"]
-            if "image_url" in updates and updates["image_url"] is not None:
-                merged["image_url"] = updates["image_url"]
-            elif "image_url" in updates and updates["image_url"] is None:
-                merged.pop("image_url", None)
-            if "layout" in updates and updates["layout"] is not None:
-                layout_updates = updates["layout"]
-                # If layout_updates is a complete layout object, replace it entirely
-                # Otherwise, merge field by field
-                if isinstance(layout_updates, dict):
-                    existing_layout = merged.get("layout", {})
-                    for key, value in layout_updates.items():
-                        if value is None:
-                            continue
-                        # If value is a dict (field config), merge it with existing
-                        if isinstance(value, dict):
-                            existing_layout[key] = {**existing_layout.get(key, {}), **value}
-                        else:
-                            # If value is not a dict, just set it
-                            existing_layout[key] = value
-                    merged["layout"] = existing_layout
-            templates[idx] = merged
-            payload["templates"] = templates
-            _write_payload(payload)
-            return merged
-    raise ValueError(f"Template '{template_id}' not found")
+    existing = get_template(template_id)
+    merged = existing.copy()
+
+    if "name" in updates and updates["name"] is not None:
+        merged["name"] = updates["name"]
+    if "file" in updates and updates["file"] is not None:
+        merged["file"] = updates["file"]
+    if "image_url" in updates:
+        merged["image_url"] = updates["image_url"]
+    if "layout" in updates and updates["layout"] is not None:
+        layout_updates = updates["layout"]
+        if isinstance(layout_updates, dict):
+            base_layout = merged.get("layout", {})
+            for key, value in layout_updates.items():
+                if value is None:
+                    continue
+                if isinstance(value, dict):
+                    base_layout[key] = {**base_layout.get(key, {}), **value}
+                else:
+                    base_layout[key] = value
+            merged["layout"] = base_layout
+
+    payload = {
+        "name": merged["name"],
+        "storage_key": merged.get("file"),
+        "image_url": merged.get("image_url"),
+        "layout": merged.get("layout", _default_layout_copy()),
+    }
+
+    supabase.table(TEMPLATES_TABLE).update(payload).eq("id", template_id).execute()
+    return merged
 
 
 def delete_template(template_id: str) -> Dict[str, Any]:
-    """Delete a template and return the deleted template data"""
-    payload = _load_payload()
-    templates = payload.get("templates", [])
-    for idx, template in enumerate(templates):
-        if template.get("id") == template_id:
-            deleted = templates.pop(idx)
-            payload["templates"] = templates
-            _write_payload(payload)
-            return deleted
-    raise ValueError(f"Template '{template_id}' not found")
+    template = get_template(template_id)
+    supabase.table(TEMPLATES_TABLE).delete().eq("id", template_id).execute()
+    return template
 
 
 def merge_layout(template: Dict[str, Any], override: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    layout = json.loads(json.dumps(template.get("layout", {})))  # deep copy
+    layout = json.loads(json.dumps(template.get("layout", {})))
     if not override:
         return layout
     for key, value in override.items():
@@ -140,27 +152,55 @@ def merge_layout(template: Dict[str, Any], override: Optional[Dict[str, Any]]) -
     return layout
 
 
+def _download_template_file(storage_key: Optional[str]) -> Optional[str]:
+    if not storage_key:
+        return None
+
+    filename = os.path.basename(storage_key)
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    local_path = os.path.join(CACHE_DIR, filename)
+
+    if os.path.exists(local_path):
+        return local_path
+
+    try:
+        s3 = get_storage_client()
+        s3.download_file(TEMPLATE_BUCKET, storage_key, local_path)
+        return local_path
+    except RuntimeError as exc:
+        print(f"Supabase Storage client is not configured: {exc}")
+    except Exception as exc:
+        print(f"Failed to download template from Supabase Storage: {exc}")
+        if os.path.exists(local_path):
+            os.remove(local_path)
+    return None
+
+
 def resolve_template_path(template: Dict[str, Any]) -> str:
-    candidate = template.get("file", "certificate_template.png")
-    if os.path.isabs(candidate):
+    # Prefer downloading from Supabase Storage if storage key exists
+    storage_key = template.get("file")
+    downloaded = _download_template_file(storage_key)
+    if downloaded and os.path.exists(downloaded):
+        return downloaded
+
+    # Fallback to legacy templates directory if available
+    candidate = template.get("file", "certificate_template.png") or "certificate_template.png"
+    if os.path.isabs(candidate) and os.path.exists(candidate):
         return candidate
-    
+
     template_path = os.path.join(TEMPLATES_DIR, candidate)
-    
-    # For Vercel serverless, copy template to /tmp if it doesn't exist there
-    if os.environ.get("VERCEL"):
-        tmp_template_path = os.path.join("/tmp", candidate)
-        
-        # If template exists in /tmp, use it
-        if os.path.exists(tmp_template_path):
-            return tmp_template_path
-        
-        # Copy from TEMPLATES_DIR to /tmp if source exists
-        if os.path.exists(template_path):
-            import shutil
-            os.makedirs("/tmp", exist_ok=True)
-            shutil.copy(template_path, tmp_template_path)
-            return tmp_template_path
-    
-    return template_path
+    if os.path.exists(template_path):
+        return template_path
+
+    # Last resort: generate a placeholder template file
+    placeholder = os.path.join(TEMPLATES_DIR, "default_placeholder.png")
+    os.makedirs(TEMPLATES_DIR, exist_ok=True)
+    if not os.path.exists(placeholder):
+        from PIL import Image, ImageDraw
+
+        img = Image.new("RGB", (1200, 800), color="white")
+        draw = ImageDraw.Draw(img)
+        draw.rectangle([(50, 50), (1150, 750)], outline="black", width=3)
+        img.save(placeholder)
+    return placeholder
 

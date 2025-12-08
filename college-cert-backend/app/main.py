@@ -14,20 +14,45 @@ load_dotenv()
 app = FastAPI(title="College Certificate Management API")
 
 # CORS configuration
-origins = [
-    os.getenv("FRONTEND_URL", "http://localhost:5173"),
-    "http://localhost:5173",
-    "https://credsatgdg.vercel.app",  # Your production frontend
-]
+frontends: set[str] = set()
+default_frontend = os.getenv("FRONTEND_URL", "http://localhost:5173").strip()
+if default_frontend:
+    frontends.add(default_frontend.rstrip("/"))
+frontends.add("http://localhost:5173")
+frontends.add("https://credsatgdg.vercel.app")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-    allow_credentials=True,
-    expose_headers=["*"],
-)
+additional_origins = os.getenv("ADDITIONAL_CORS_ORIGINS", "")
+for origin in additional_origins.split(","):
+    cleaned = origin.strip().rstrip("/")
+    if cleaned:
+        frontends.add(cleaned)
+
+allow_all_origins = os.getenv("ALLOW_ALL_CORS", "false").lower() == "true"
+allow_credentials = os.getenv("ALLOW_CREDENTIALS", "true").lower() == "true"
+
+cors_kwargs = {
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+    "expose_headers": ["*"],
+}
+
+if allow_all_origins:
+    # Browsers reject Access-Control-Allow-Origin "*" when credentials are included
+    cors_kwargs.update({
+        "allow_origins": ["*"],
+        "allow_credentials": False,
+    })
+else:
+    allowed_list = sorted(frontends) or ["http://localhost:5173"]
+    cors_kwargs.update({
+        "allow_origins": allowed_list,
+        "allow_credentials": allow_credentials,
+    })
+    cors_origin_regex = os.getenv("CORS_ORIGIN_REGEX", r"https://.*\.vercel\.app")
+    if cors_origin_regex:
+        cors_kwargs["allow_origin_regex"] = cors_origin_regex
+
+app.add_middleware(CORSMiddleware, **cors_kwargs)
 
 # Include routers
 app.include_router(events.router, prefix="/api/events", tags=["events"])

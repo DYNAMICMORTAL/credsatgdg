@@ -1,7 +1,5 @@
 import json
 import os
-import boto3
-from botocore.client import Config
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
@@ -14,11 +12,7 @@ router = APIRouter()
 
 ADMIN_SECRET = os.getenv("ADMIN_SECRET", "secret")
 
-# Supabase S3 configuration for template images
-SUPABASE_PROJECT_ID = os.getenv("SUPABASE_URL", "").split("//")[1].split(".")[0] if os.getenv("SUPABASE_URL") else ""
-S3_ENDPOINT = f"https://{SUPABASE_PROJECT_ID}.supabase.co/storage/v1/s3"
-S3_ACCESS_KEY_ID = os.getenv("SUPABASE_S3_ACCESS_KEY_ID")
-S3_SECRET_ACCESS_KEY = os.getenv("SUPABASE_S3_SECRET_ACCESS_KEY")
+TEMPLATE_BUCKET = os.getenv("TEMPLATE_BUCKET_NAME", "template-certificates")
 
 def verify_admin(secret: str):
     if secret != ADMIN_SECRET:
@@ -64,26 +58,18 @@ async def upload_template(
     # Upload template image to Supabase Storage
     template_image_url = None
     try:
-        s3_client = boto3.client(
-            's3',
-            endpoint_url=S3_ENDPOINT,
-            aws_access_key_id=S3_ACCESS_KEY_ID,
-            aws_secret_access_key=S3_SECRET_ACCESS_KEY,
-            config=Config(signature_version='s3v4'),
-            region_name='ap-southeast-1'
-        )
-        
-        # Upload to template-images bucket
+        s3_client = template_manager.get_storage_client()
         s3_client.put_object(
-            Bucket='template-images',
+            Bucket=TEMPLATE_BUCKET,
             Key=filename,
             Body=content,
             ContentType=image.content_type or 'image/png'
         )
-        
-        # Get public URL
-        template_image_url = supabase.storage.from_('template-images').get_public_url(filename)
-        print(f"Template image uploaded to Supabase: {template_image_url}")
+
+        template_image_url = supabase.storage.from_(TEMPLATE_BUCKET).get_public_url(filename)
+        print(f"Template image uploaded to Supabase bucket '{TEMPLATE_BUCKET}': {template_image_url}")
+    except RuntimeError as exc:
+        print(f"Supabase storage client not configured: {exc}")
     except Exception as e:
         print(f"Failed to upload template image to Supabase: {e}")
         # Continue anyway, template will work from local storage
@@ -128,16 +114,11 @@ def delete_template(template_id: str, admin_secret: str):
     if deleted.get("image_url"):
         try:
             filename = deleted["file"]
-            s3_client = boto3.client(
-                's3',
-                endpoint_url=S3_ENDPOINT,
-                aws_access_key_id=S3_ACCESS_KEY_ID,
-                aws_secret_access_key=S3_SECRET_ACCESS_KEY,
-                config=Config(signature_version='s3v4'),
-                region_name='ap-southeast-1'
-            )
-            s3_client.delete_object(Bucket='template-images', Key=filename)
-            print(f"Deleted template image from Supabase: {filename}")
+            s3_client = template_manager.get_storage_client()
+            s3_client.delete_object(Bucket=TEMPLATE_BUCKET, Key=filename)
+            print(f"Deleted template image from Supabase bucket '{TEMPLATE_BUCKET}': {filename}")
+        except RuntimeError as exc:
+            print(f"Supabase storage client not configured: {exc}")
         except Exception as e:
             print(f"Failed to delete template image from Supabase: {e}")
             # Continue anyway, template config is already deleted
@@ -179,24 +160,18 @@ async def update_template_image(
 
     template_image_url = None
     try:
-        s3_client = boto3.client(
-            's3',
-            endpoint_url=S3_ENDPOINT,
-            aws_access_key_id=S3_ACCESS_KEY_ID,
-            aws_secret_access_key=S3_SECRET_ACCESS_KEY,
-            config=Config(signature_version='s3v4'),
-            region_name='ap-southeast-1'
-        )
-
+        s3_client = template_manager.get_storage_client()
         s3_client.put_object(
-            Bucket='template-images',
+            Bucket=TEMPLATE_BUCKET,
             Key=filename,
             Body=content,
             ContentType=image.content_type or 'image/png'
         )
 
-        template_image_url = supabase.storage.from_('template-images').get_public_url(filename)
-        print(f"Template image updated on Supabase: {template_image_url}")
+        template_image_url = supabase.storage.from_(TEMPLATE_BUCKET).get_public_url(filename)
+        print(f"Template image updated on Supabase bucket '{TEMPLATE_BUCKET}': {template_image_url}")
+    except RuntimeError as exc:
+        print(f"Supabase storage client not configured: {exc}")
     except Exception as e:
         print(f"Failed to upload template image to Supabase: {e}")
 
