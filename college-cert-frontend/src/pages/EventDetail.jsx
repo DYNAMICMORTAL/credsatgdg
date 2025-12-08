@@ -32,6 +32,7 @@ export default function EventDetail() {
   const [templateImageFile, setTemplateImageFile] = useState(null);
   const [savingTemplateImage, setSavingTemplateImage] = useState(false);
   const [eventStats, setEventStats] = useState(null);
+  const [testingTemplate, setTestingTemplate] = useState(false);
   const templateFileInputRef = useRef(null);
   const templateImageInputRef = useRef(null);
 
@@ -319,6 +320,44 @@ export default function EventDetail() {
       alert("Failed to update template image: " + (err.response?.data?.detail || err.message));
     } finally {
       setSavingTemplateImage(false);
+    }
+  };
+
+  const testTemplatePdf = async () => {
+    if (!selectedTemplateId) {
+      alert("Select a template to test.");
+      return;
+    }
+    setTestingTemplate(true);
+    try {
+      const payload = {
+        event_id: Number(id),
+      };
+      if (participants.length > 0) {
+        payload.participant_id = participants[0].id;
+      }
+      const draftLayout = isEditingLayout && layoutDraft ? layoutDraft : selectedTemplate?.layout;
+      if (draftLayout) {
+        payload.layout = draftLayout;
+      }
+      const response = await api.post(
+        `/certificates/templates/${selectedTemplateId}/test?admin_secret=${adminSecret}`,
+        payload,
+        { responseType: "blob" }
+      );
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${selectedTemplateId}-preview.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert("Failed to download test PDF: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setTestingTemplate(false);
     }
   };
 
@@ -848,46 +887,68 @@ export default function EventDetail() {
                 <h2 style={{ marginBottom: "0.5rem", fontSize: "1.5rem", fontWeight: "700" }}>Certificate Template</h2>
                 <p className="text-sm text-muted">Configure the template layout and design for your certificates</p>
               </div>
-              {isEditingLayout ? (
-                <div className="flex gap-2">
-                  <button onClick={cancelEditingLayout} className="btn btn-secondary">
-                    Cancel
-                  </button>
-                  <button onClick={saveLayout} className="btn btn-success" disabled={savingLayout}>
-                    {savingLayout ? (
-                      <>
-                        <div className="loading-spinner" style={{ width: "16px", height: "16px", borderWidth: "2px", margin: 0 }}></div>
-                        Saving...
-                      </>
-                    ) : (
-                      "Save Layout"
-                    )}
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <button onClick={startEditingLayout} className="btn btn-primary" disabled={!selectedTemplate}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 20h9"></path>
-                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                    </svg>
-                    Edit Layout
-                  </button>
-                  <button
-                    onClick={() => setEditingTemplateImage(!editingTemplateImage)}
-                    className="btn btn-secondary"
-                    disabled={!selectedTemplate}
-                    title="Change template image"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                      <polyline points="21 15 16 10 5 21"></polyline>
-                    </svg>
-                    Change Image
-                  </button>
-                </div>
-              )}
+              <div className="flex gap-2" style={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {isEditingLayout ? (
+                  <>
+                    <button onClick={cancelEditingLayout} className="btn btn-secondary">
+                      Cancel
+                    </button>
+                    <button onClick={saveLayout} className="btn btn-success" disabled={savingLayout}>
+                      {savingLayout ? (
+                        <>
+                          <div className="loading-spinner" style={{ width: "16px", height: "16px", borderWidth: "2px", margin: 0 }}></div>
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Layout"
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={startEditingLayout} className="btn btn-primary" disabled={!selectedTemplate}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                      </svg>
+                      Edit Layout
+                    </button>
+                    <button
+                      onClick={() => setEditingTemplateImage(!editingTemplateImage)}
+                      className="btn btn-secondary"
+                      disabled={!selectedTemplate}
+                      title="Change template image"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                      </svg>
+                      Change Image
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={testTemplatePdf}
+                  className="btn btn-secondary"
+                  disabled={!selectedTemplate || testingTemplate}
+                >
+                  {testingTemplate ? (
+                    <>
+                      <div className="loading-spinner" style={{ width: "16px", height: "16px", borderWidth: "2px", margin: 0 }}></div>
+                      Generating Preview...
+                    </>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 5v14"></path>
+                        <path d="M5 12h14"></path>
+                      </svg>
+                      Download Test PDF
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             {templatesLoading ? (

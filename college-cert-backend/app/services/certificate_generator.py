@@ -1,6 +1,8 @@
 import os
 import random
 import string
+from io import BytesIO
+from typing import Optional
 from PIL import Image, ImageDraw, ImageFont
 import qrcode
 from dotenv import load_dotenv
@@ -151,16 +153,15 @@ def _build_verify_url(code: str) -> str:
     return f"{fallback}/verify/{code}"
 
 
-def generate_certificate_image(
+def _create_certificate_image(
     participant_name: str,
     event_name: str,
     event_date: str,
     code: str,
     template: dict,
     layout: dict,
-    participant_data: dict = None,
+    participant_data: Optional[dict] = None,
 ):
-    """Generate certificate image with support for custom fields from participant data"""
     template_path = template_manager.resolve_template_path(template)
     if not os.path.exists(template_path):
         template_path = _ensure_template_file(DEFAULT_TEMPLATE_PATH)
@@ -169,7 +170,6 @@ def generate_certificate_image(
     draw = ImageDraw.Draw(base)
     w, h = base.size
 
-    # Standard fields
     name_cfg = layout.get("name", {})
     if name_cfg:
         _draw_text(draw, participant_name, name_cfg, w, h)
@@ -180,32 +180,25 @@ def generate_certificate_image(
 
     date_cfg = layout.get("date", {})
     if date_cfg:
-        # Use custom format if specified, otherwise use default
         date_format = date_cfg.get("format", "Issued on: {date}")
         date_text = date_format.replace("{date}", event_date)
         _draw_text(draw, date_text, date_cfg, w, h)
 
     code_cfg = layout.get("code", {})
     if code_cfg:
-        # Use custom format if specified, otherwise use default
         code_format = code_cfg.get("format", "Code: {code}")
         code_text = code_format.replace("{code}", code)
         _draw_text(draw, code_text, code_cfg, w, h)
 
-    # Handle custom fields from participant data
     if participant_data:
         for field_key, field_cfg in layout.items():
-            # Skip standard fields and qr
             if field_key in ["name", "event", "date", "code", "qr"]:
                 continue
-            
-            # Check if this field exists in participant data
             if isinstance(field_cfg, dict) and field_key in participant_data:
                 field_value = participant_data.get(field_key)
                 if field_value:
                     _draw_text(draw, str(field_value), field_cfg, w, h)
 
-    # QR Code
     qr_cfg = layout.get("qr", {})
     if qr_cfg:
         verify_url = _build_verify_url(code)
@@ -219,13 +212,35 @@ def generate_certificate_image(
         qr_y = _resolve_coordinate(qr_cfg.get("y", 0.7), h)
         base.paste(qr_img, (qr_x, qr_y), qr_img)
 
+    return base
+
+
+def generate_certificate_image(
+    participant_name: str,
+    event_name: str,
+    event_date: str,
+    code: str,
+    template: dict,
+    layout: dict,
+    participant_data: Optional[dict] = None,
+):
+    """Generate certificate image and upload to Supabase Storage"""
+    base = _create_certificate_image(
+        participant_name,
+        event_name,
+        event_date,
+        code,
+        template,
+        layout,
+        participant_data,
+    )
+
     filename = f"{code}.png"
     filepath = os.path.join(CERT_DIR, filename)
     base.save(filepath)
+    base.close()
 
-    # Upload to Supabase Storage using S3 API
     try:
-        # Initialize S3 client with Supabase credentials
         s3_client = boto3.client(
             's3',
             endpoint_url=S3_ENDPOINT,
@@ -234,8 +249,7 @@ def generate_certificate_image(
             config=Config(signature_version='s3v4'),
             region_name='ap-southeast-1'
         )
-        
-        # Upload file
+
         with open(filepath, 'rb') as f:
             s3_client.put_object(
                 Bucket=S3_BUCKET_NAME,
@@ -243,16 +257,39 @@ def generate_certificate_image(
                 Body=f.read(),
                 ContentType='image/png'
             )
-        
-        # Get public URL
+
         public_url = supabase.storage.from_(S3_BUCKET_NAME).get_public_url(filename)
-        
-        # Clean up local file
+
         if os.path.exists(filepath):
             os.remove(filepath)
-        
+
         return public_url
     except Exception as e:
-        # Fallback to local path if upload fails
         print(f"Supabase S3 upload failed: {e}")
         return f"certificates/{filename}"
+
+
+def generate_certificate_preview_pdf(
+    participant_name: str,
+    event_name: str,
+    event_date: str,
+    code: str,
+    template: dict,
+    layout: dict,
+    participant_data: Optional[dict] = None,
+):
+    """Render certificate preview and return PDF bytes buffer."""
+    image = _create_certificate_image(
+        participant_name,
+        event_name,
+        event_date,
+        code,
+        template,
+        layout,
+        participant_data,
+    )
+    buffer = BytesIO()
+    image.convert("RGB").save(buffer, format="PDF")
+    image.close()
+    buffer.seek(0)
+    return buffer

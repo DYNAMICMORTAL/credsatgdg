@@ -2,10 +2,15 @@ import json
 import os
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 
 from .. import schemas
 from ..database import supabase
-from ..services.certificate_generator import generate_certificate_image, generate_code
+from ..services.certificate_generator import (
+    generate_certificate_image,
+    generate_certificate_preview_pdf,
+    generate_code,
+)
 from ..services import template_manager
 
 router = APIRouter()
@@ -181,6 +186,71 @@ async def update_template_image(
 
     updated = template_manager.update_template(template_id, updates)
     return updated
+
+
+@router.post("/templates/{template_id}/test", response_class=StreamingResponse)
+def test_template_pdf(
+    template_id: str,
+    payload: schemas.TemplateTestRequest,
+    admin_secret: str,
+):
+    verify_admin(admin_secret)
+    try:
+        template = template_manager.get_template(template_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    layout_source = payload.layout or template.get("layout") or {}
+    layout = json.loads(json.dumps(layout_source))
+
+    try:
+        event_res = supabase.table("events").select("*").eq("id", payload.event_id).limit(1).execute()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Supabase query failed: {exc}") from exc
+    event_row = event_res.data[0] if event_res.data else None
+    if not event_row:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    participant_row = None
+    if payload.participant_id:
+        try:
+            participant_res = (
+                supabase.table("participants")
+                .select("*")
+                .eq("event_id", payload.event_id)
+                .eq("id", payload.participant_id)
+                .limit(1)
+                .execute()
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Supabase query failed: {exc}") from exc
+        participant_row = participant_res.data[0] if participant_res.data else None
+    if not participant_row:
+        try:
+            fallback_res = supabase.table("participants").select("*").eq("event_id", payload.event_id).limit(1).execute()
+            participant_row = fallback_res.data[0] if fallback_res.data else None
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Supabase query failed: {exc}") from exc
+
+    participant_name = (participant_row or {}).get("name") or "Sample Student"
+    event_name = event_row.get("name", "Sample Event")
+    event_date = event_row.get("date", "")
+    code = generate_code(prefix="TEST")
+
+    pdf_stream = generate_certificate_preview_pdf(
+        participant_name=participant_name,
+        event_name=event_name,
+        event_date=event_date,
+        code=code,
+        template=template,
+        layout=layout,
+        participant_data=participant_row,
+    )
+
+    headers = {
+        "Content-Disposition": f"attachment; filename={template_id}-preview.pdf"
+    }
+    return StreamingResponse(pdf_stream, media_type="application/pdf", headers=headers)
 
 
 

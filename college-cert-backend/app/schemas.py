@@ -107,6 +107,12 @@ class TemplateUpdateRequest(BaseModel):
     layout: Optional[dict] = None  # Changed to dict to accept any layout structure
 
 
+class TemplateTestRequest(BaseModel):
+    event_id: int
+    participant_id: Optional[int] = None
+    layout: Optional[dict] = None
+
+
 class CertificateGenerationRequest(BaseModel):
     template_id: str
     layout_override: Optional[LayoutOverride] = None
