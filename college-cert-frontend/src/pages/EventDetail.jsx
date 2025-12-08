@@ -1393,6 +1393,7 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
   const containerRef = useRef(null);
   const [dragField, setDragField] = useState(null);
   const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 });
+  const [imageMeta, setImageMeta] = useState({ width: 1200, height: 800 });
 
   if (!template) {
     return (
@@ -1408,8 +1409,8 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
   }
 
   const layout = (editable && layoutDraft) ? layoutDraft : (template.layout || {});
-  const baseWidth = 1200;
-  const baseHeight = 800;
+  const baseWidth = imageMeta.width || 1200;
+  const baseHeight = imageMeta.height || 800;
   const sizeRatio = {
     width: canvasSize.width / baseWidth,
     height: canvasSize.height / baseHeight,
@@ -1437,6 +1438,13 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
     );
   }
 
+  useEffect(() => {
+    const imgEl = containerRef.current?.querySelector("img");
+    if (imgEl && imgEl.complete && imgEl.naturalWidth && imgEl.naturalHeight) {
+      setImageMeta({ width: imgEl.naturalWidth, height: imgEl.naturalHeight });
+    }
+  }, [imageUrl]);
+
   const resolvePercent = (value, axis) => {
     if (typeof value !== "number") return 50;
     if (value >= 0 && value <= 1) return value * 100;
@@ -1450,6 +1458,14 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
     if (value > 0 && value <= 1) return value * 100;
     const base = Math.min(baseWidth, baseHeight);
     return (value / base) * 100;
+  };
+
+  const handleImageLoad = (event) => {
+    const { naturalWidth, naturalHeight } = event.target;
+    if (!naturalWidth || !naturalHeight) {
+      return;
+    }
+    setImageMeta({ width: naturalWidth, height: naturalHeight });
   };
   useEffect(() => {
     const target = containerRef.current;
@@ -1514,14 +1530,14 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
       const rect = containerRef.current.getBoundingClientRect();
       if (rect.width === 0 || rect.height === 0) return;
       
-      const scaleX = 1200 / rect.width;
-      const scaleY = 800 / rect.height;
+      const scaleX = baseWidth / rect.width;
+      const scaleY = baseHeight / rect.height;
       
       const pixelX = (event.clientX - rect.left) * scaleX;
       const pixelY = (event.clientY - rect.top) * scaleY;
       
-      const clampedX = Math.max(0, Math.min(1200, pixelX));
-      const clampedY = Math.max(0, Math.min(800, pixelY));
+      const clampedX = Math.max(0, Math.min(baseWidth, pixelX));
+      const clampedY = Math.max(0, Math.min(baseHeight, pixelY));
       
       onLayoutChange(dragField, { x: clampedX, y: clampedY });
     };
@@ -1532,7 +1548,7 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
     };
-  }, [dragField, editable, onLayoutChange]);
+  }, [dragField, editable, onLayoutChange, baseWidth, baseHeight]);
 
   const startDrag = (field) => (event) => {
     if (!editable || !onLayoutChange) return;
@@ -1549,7 +1565,7 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
 
   return (
     <div className={`template-preview${editable ? " template-preview--editable" : ""}`} ref={containerRef}>
-      <img src={imageUrl} alt="Template" />
+      <img src={imageUrl} alt="Template" onLoad={handleImageLoad} />
       {markers.map(({ key, label }) => {
         const placement = layout[key];
         if (!placement) return null;
