@@ -1,6 +1,18 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import api from "../api";
+const formatSampleDate = (value) => {
+  if (!value) return "18 October 2025";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+};
 
 export default function EventDetail() {
   const { id } = useParams();
@@ -38,6 +50,20 @@ export default function EventDetail() {
 
   const adminSecret = import.meta.env.VITE_ADMIN_SECRET;
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+  const primaryParticipant = participants[0] || null;
+  const previewSampleData = {
+    name: primaryParticipant?.name || "Alex Johnson",
+    event: event?.name || "Signature Event",
+    date: event?.date ? formatSampleDate(event.date) : "18 October 2025",
+    code: "TEST-12345",
+  };
+  if (primaryParticipant) {
+    Object.entries(primaryParticipant).forEach(([key, value]) => {
+      if (typeof value === "string" && value.trim() && !previewSampleData[key]) {
+        previewSampleData[key] = value;
+      }
+    });
+  }
 
   const selectedTemplate = templates.find((tpl) => tpl.id === selectedTemplateId) || null;
 
@@ -1125,6 +1151,7 @@ export default function EventDetail() {
                     editable={isEditingLayout}
                     layoutDraft={layoutDraft}
                     onLayoutChange={handleLayoutChange}
+                                      sampleData={previewSampleData}
                   />
                 </div>
                 {isEditingLayout && layoutDraft && (
@@ -1362,9 +1389,10 @@ export default function EventDetail() {
 }
 
 // TemplatePreview Component
-function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, onLayoutChange }) {
+function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, onLayoutChange, sampleData = {} }) {
   const containerRef = useRef(null);
   const [dragField, setDragField] = useState(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 1200, height: 800 });
 
   if (!template) {
     return (
@@ -1382,6 +1410,17 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
   const layout = (editable && layoutDraft) ? layoutDraft : (template.layout || {});
   const baseWidth = 1200;
   const baseHeight = 800;
+  const sizeRatio = {
+    width: canvasSize.width / baseWidth,
+    height: canvasSize.height / baseHeight,
+  };
+  const combinedSamples = {
+    name: "Sample Name",
+    event: "Flagship Event",
+    date: "18 October 2025",
+    code: "TEST-12345",
+    ...sampleData,
+  };
   
   // Use image_url from Supabase if available, otherwise construct URL from file
   const imageUrl = template.image_url 
@@ -1402,7 +1441,8 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
     if (typeof value !== "number") return 50;
     if (value >= 0 && value <= 1) return value * 100;
     const base = axis === "x" ? baseWidth : baseHeight;
-    return (value / base) * 100;
+    const percent = (value / base) * 100;
+    return Math.max(0, Math.min(100, percent));
   };
 
   const resolveQrSize = (value) => {
@@ -1410,6 +1450,61 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
     if (value > 0 && value <= 1) return value * 100;
     const base = Math.min(baseWidth, baseHeight);
     return (value / base) * 100;
+  };
+  useEffect(() => {
+    const target = containerRef.current;
+    if (!target || typeof ResizeObserver === "undefined") {
+      return undefined;
+    }
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry?.contentRect?.width && entry?.contentRect?.height) {
+        setCanvasSize({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      }
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      setCanvasSize({ width: rect.width, height: rect.height });
+    }
+  }, [template?.id, editable]);
+
+  const resolveSampleText = (fieldKey, placementCfg = {}) => {
+    if (fieldKey === "name") {
+      return combinedSamples.name;
+    }
+    if (fieldKey === "event") {
+      return combinedSamples.event;
+    }
+    if (fieldKey === "date") {
+      const format = placementCfg.format || "Issued on: {date}";
+      const dateValue = combinedSamples.date;
+      return format.includes("{date}") ? format.replace("{date}", dateValue) : `${format} ${dateValue}`;
+    }
+    if (fieldKey === "code") {
+      const format = placementCfg.format || "Code: {code}";
+      const codeValue = combinedSamples.code;
+      return format.includes("{code}") ? format.replace("{code}", codeValue) : `${format} ${codeValue}`;
+    }
+    if (combinedSamples[fieldKey]) {
+      return combinedSamples[fieldKey];
+    }
+    return fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1).replace(/_/g, " ");
+  };
+
+  const translateForAlign = (align = "center") => {
+    if (align === "left") return 0;
+    if (align === "right") return -100;
+    return -50;
   };
 
   useEffect(() => {
@@ -1458,17 +1553,38 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
       {markers.map(({ key, label }) => {
         const placement = layout[key];
         if (!placement) return null;
+        const alignment = placement.align || "center";
+        const translateX = translateForAlign(alignment);
+        const fontSizePx = Math.max(12, (placement.font_size || 40) * sizeRatio.width);
+        const letterSpacingPx = placement.letter_spacing
+          ? placement.letter_spacing * sizeRatio.width
+          : undefined;
+        const sampleText = resolveSampleText(key, placement) || label;
+        const classList = ["template-marker", "template-marker--text"];
+        if (editable) classList.push("template-marker--draggable");
+        if (dragField === key) classList.push("template-marker--active");
         return (
           <div
             key={key}
-            className={`template-marker${editable ? " template-marker--draggable" : ""}${dragField === key ? " template-marker--active" : ""}`}
+            className={classList.join(" ")}
             style={{
               left: `${resolvePercent(placement.x, "x")}%`,
               top: `${resolvePercent(placement.y, "y")}%`,
+              transform: `translate(${translateX}%, -50%)`,
+              fontFamily: placement.font_family || "Georgia",
+              fontSize: `${fontSizePx}px`,
+              color: placement.color || "#0f172a",
+              letterSpacing: letterSpacingPx !== undefined ? `${letterSpacingPx}px` : undefined,
+              lineHeight: placement.line_height || 1.2,
+              fontWeight: placement.font_weight || 600,
+              textTransform: placement.uppercase ? "uppercase" : "none",
+              textAlign: alignment,
+              pointerEvents: editable ? "auto" : "none",
+              textShadow: placement.text_shadow || "0 1px 2px rgba(15, 23, 42, 0.3)",
             }}
             onPointerDown={startDrag(key)}
           >
-            {label}
+            <span className="template-marker__text">{sampleText}</span>
           </div>
         );
       })}
@@ -1480,6 +1596,7 @@ function TemplatePreview({ template, apiBaseUrl, editable = false, layoutDraft, 
             top: `${resolvePercent(layout.qr.y, "y")}%`,
             width: `${resolveQrSize(layout.qr.size)}%`,
             height: `${resolveQrSize(layout.qr.size)}%`,
+            pointerEvents: editable ? "auto" : "none",
           }}
           onPointerDown={startDrag("qr")}
         >

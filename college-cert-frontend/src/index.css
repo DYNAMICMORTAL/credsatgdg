@@ -825,11 +825,11 @@ tbody tr:last-child td {
 /* Template Designer */
 .template-preview {
   position: relative;
-  border: 3px dashed var(--border-color);
-  border-radius: var(--radius-xl);
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-2xl);
   overflow: hidden;
   background-color: #e5e7eb;
-  background-image: 
+  background-image:
     linear-gradient(45deg, #d1d5db 25%, transparent 25%),
     linear-gradient(-45deg, #d1d5db 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, #d1d5db 75%),
@@ -839,19 +839,22 @@ tbody tr:last-child td {
   user-select: none;
   box-shadow: var(--shadow-md);
   transition: all 0.3s ease;
-  min-height: 600px; /* Increased from default */
-  max-width: 900px; /* Control maximum width */
+  width: min(100%, 1000px);
+  aspect-ratio: 3 / 2;
+  min-height: 0;
+  height: auto;
 }
 
 .template-preview--editable {
   border-color: var(--primary);
-  border-style: solid;
-  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1), var(--shadow-lg);
-  cursor: crosshair; /* Better visual feedback for editing mode */
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), var(--shadow-lg);
+  cursor: crosshair;
 }
 
 .template-preview img {
   width: 100%;
+  height: 100%;
+  object-fit: cover;
   display: block;
   pointer-events: none;
 }
@@ -859,35 +862,36 @@ tbody tr:last-child td {
 .template-marker {
   position: absolute;
   transform: translate(-50%, -50%);
-  background: rgba(255, 255, 255, 0.95);
-  border: 2px solid var(--primary);
-  color: var(--primary);
-  padding: 0.5rem 1rem; /* Increased padding for easier clicking */
-  border-radius: var(--radius-md);
-  font-size: 0.8125rem; /* Slightly larger text */
-  font-weight: 700;
+  color: var(--text-main);
+  font-weight: 600;
   cursor: default;
   white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 10;
-  transition: all 0.2s ease;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  min-width: 60px; /* Ensure minimum clickable area */
-  text-align: center;
+  text-transform: none;
+  letter-spacing: normal;
+  pointer-events: none;
+}
+
+.template-marker--text {
+  background: transparent;
+  border: none;
+  padding: 0;
+  box-shadow: none;
 }
 
 .template-marker--draggable {
   cursor: grab;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
-  color: white;
-  border: none;
-  padding: 0.625rem 1.25rem; /* Even more padding for draggable markers */
+  pointer-events: auto;
+  background: rgba(99, 102, 241, 0.18);
+  color: var(--text-main);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--radius-md);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.25);
 }
 
 .template-marker--draggable:hover {
-  transform: translate(-50%, -50%) scale(1.05);
-  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+  transform: translate(-50%, -50%) scale(1.03);
 }
 
 .template-marker--draggable:active {
@@ -895,9 +899,21 @@ tbody tr:last-child td {
 }
 
 .template-marker--active {
-  box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.4), 0 8px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.35), 0 10px 20px rgba(15, 23, 42, 0.25);
   z-index: 20;
-  transform: translate(-50%, -50%) scale(1.15); /* Slightly larger scale */
+  transform: translate(-50%, -50%) scale(1.05);
+}
+
+.template-marker__text {
+  display: inline-block;
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.35rem;
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(1px);
+}
+
+.template-marker--draggable .template-marker__text {
+  background: transparent;
 }
 
 .template-marker-qr {
@@ -1218,14 +1234,16 @@ tbody tr:last-child td {
 .event-info h3 {
   font-size: 1.25rem;
   margin-bottom: 0.5rem;
+  pointer-events: none;
   color: var(--text-main);
 }
 
-.event-info p {
+  /* cursor: grab;
+  pointer-events: auto;
   color: var(--text-muted);
   font-size: 0.875rem;
   margin: 0.25rem 0;
-}
+} */
 
 /* Hero Section */
 .hero {
