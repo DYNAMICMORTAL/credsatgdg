@@ -1,6 +1,9 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import api from "../api";
+import Loading from "../components/Loading";
+import StatusBanner from "../components/StatusBanner";
+import { ConfirmModal } from "../components/Modal";
 const formatSampleDate = (value) => {
   if (!value) return "18 October 2025";
   const parsed = new Date(value);
@@ -16,6 +19,7 @@ const formatSampleDate = (value) => {
 
 export default function EventDetail() {
   const { id } = useParams();
+  const [statusMessage, setStatusMessage] = useState({ message: "", type: "" });
   const [event, setEvent] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [certs, setCerts] = useState([]);
@@ -45,6 +49,7 @@ export default function EventDetail() {
   const [savingTemplateImage, setSavingTemplateImage] = useState(false);
   const [eventStats, setEventStats] = useState(null);
   const [testingTemplate, setTestingTemplate] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, title: "", message: "", onConfirm: null, type: "default" });
   const templateFileInputRef = useRef(null);
   const templateImageInputRef = useRef(null);
 
@@ -147,7 +152,20 @@ export default function EventDetail() {
       setIsEditingLayout(false);
       return;
     }
-    setLayoutDraft(cloneLayout(template.layout));
+    console.log("[DEBUG] Template changed, setting layoutDraft from template.layout:", JSON.stringify(template.layout, null, 2));
+    
+    // Normalize the layout to ensure all text fields have proper defaults
+    const normalizedLayout = cloneLayout(template.layout);
+    Object.keys(normalizedLayout).forEach(key => {
+      if (key !== 'qr' && normalizedLayout[key]) {
+        // Ensure font_family has a default value if null/undefined
+        if (!normalizedLayout[key].font_family) {
+          normalizedLayout[key].font_family = "Arial";
+        }
+      }
+    });
+    
+    setLayoutDraft(normalizedLayout);
     setIsEditingLayout(false);
   }, [selectedTemplateId, templates]);
 
@@ -156,7 +174,7 @@ export default function EventDetail() {
     
     if (uploadType === "sheets") {
       if (!sheetsUrl.trim()) {
-        alert("Please enter a Google Sheets URL");
+        setStatusMessage({ message: "Please enter a Google Sheets URL", type: "warning" });
         return;
       }
 
@@ -165,11 +183,11 @@ export default function EventDetail() {
       
       try {
         const response = await api.post(url);
-        alert(response.data.message);
+        setStatusMessage({ message: response.data.message, type: "success" });
         setSheetsUrl("");
         loadParticipants();
       } catch (err) {
-        alert("Failed to import from Google Sheets: " + (err.response?.data?.detail || err.message));
+        setStatusMessage({ message: "Failed to import from Google Sheets: " + (err.response?.data?.detail || err.message), type: "error" });
       } finally {
         setUploading(false);
       }
@@ -177,7 +195,7 @@ export default function EventDetail() {
     }
 
     if (!csvFile) {
-      alert(`Please select a ${uploadType === "excel" ? "Excel" : "CSV"} file`);
+      setStatusMessage({ message: `Please select a ${uploadType === "excel" ? "Excel" : "CSV"} file`, type: "warning" });
       return;
     }
 
@@ -192,13 +210,13 @@ export default function EventDetail() {
       const response = await api.post(url, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      alert(response.data.message);
+      setStatusMessage({ message: response.data.message, type: "success" });
       setCsvFile(null);
       const fileInput = document.getElementById("fileInput");
       if (fileInput) fileInput.value = "";
       loadParticipants();
     } catch (err) {
-      alert(`Failed to upload ${uploadType === "excel" ? "Excel" : "CSV"}: ` + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: `Failed to upload ${uploadType === "excel" ? "Excel" : "CSV"}: ` + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setUploading(false);
     }
@@ -207,7 +225,7 @@ export default function EventDetail() {
   const handleTemplateUpload = async (e) => {
     e.preventDefault();
     if (!templateForm.templateId.trim() || !templateForm.name.trim() || !templateFile) {
-      alert("Template ID, name, and image are required.");
+      setStatusMessage({ message: "Template ID, name, and image are required.", type: "warning" });
       return;
     }
 
@@ -225,7 +243,7 @@ export default function EventDetail() {
       await api.post("/certificates/templates/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      alert("Template uploaded successfully!");
+      setStatusMessage({ message: "Template uploaded successfully!", type: "success" });
       setTemplateForm({ templateId: "", name: "", layoutJson: "" });
       setTemplateFile(null);
       if (templateFileInputRef.current) {
@@ -233,7 +251,7 @@ export default function EventDetail() {
       }
       loadTemplates();
     } catch (err) {
-      alert("Failed to upload template: " + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: "Failed to upload template: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setTemplateUploading(false);
     }
@@ -259,7 +277,8 @@ export default function EventDetail() {
           y: 50,
           font_size: 24,
           align: "center",
-          color: "#000000"
+          color: "#000000",
+          font_family: "Arial"
         }
       };
     });
@@ -292,14 +311,17 @@ export default function EventDetail() {
     if (!layoutDraft || !selectedTemplateId) return;
     setSavingLayout(true);
     try {
-      await api.put(`/certificates/templates/${selectedTemplateId}?admin_secret=${adminSecret}`, {
+      console.log("[DEBUG] Saving layout:", JSON.stringify(layoutDraft, null, 2));
+      const response = await api.put(`/certificates/templates/${selectedTemplateId}?admin_secret=${adminSecret}`, {
         layout: layoutDraft,
       });
-      alert("Layout updated successfully");
+      console.log("[DEBUG] Save response:", JSON.stringify(response.data, null, 2));
+      setStatusMessage({ message: "Layout updated successfully", type: "success" });
       setIsEditingLayout(false);
       await loadTemplates();
     } catch (err) {
-      alert("Failed to save layout: " + (err.response?.data?.detail || err.message));
+      console.error("[DEBUG] Save error:", err);
+      setStatusMessage({ message: "Failed to save layout: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setSavingLayout(false);
     }
@@ -307,20 +329,26 @@ export default function EventDetail() {
 
   const deleteTemplate = async () => {
     if (!selectedTemplateId) return;
-    if (!confirm(`Delete template "${selectedTemplate.name}"? This cannot be undone.`)) {
-      return;
-    }
-    setDeletingTemplate(true);
-    try {
-      await api.delete(`/certificates/templates/${selectedTemplateId}?admin_secret=${adminSecret}`);
-      alert("Template deleted successfully");
-      setSelectedTemplateId("");
-      await loadTemplates();
-    } catch (err) {
-      alert("Failed to delete template: " + (err.response?.data?.detail || err.message));
-    } finally {
-      setDeletingTemplate(false);
-    }
+    
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Template",
+      message: `Are you sure you want to delete template "${selectedTemplate?.name}"? This action cannot be undone.`,
+      type: "danger",
+      onConfirm: async () => {
+        setDeletingTemplate(true);
+        try {
+          await api.delete(`/certificates/templates/${selectedTemplateId}?admin_secret=${adminSecret}`);
+          setStatusMessage({ message: "Template deleted successfully", type: "success" });
+          setSelectedTemplateId("");
+          await loadTemplates();
+        } catch (err) {
+          setStatusMessage({ message: "Failed to delete template: " + (err.response?.data?.detail || err.message), type: "error" });
+        } finally {
+          setDeletingTemplate(false);
+        }
+      }
+    });
   };
 
   const saveTemplateImage = async () => {
@@ -335,7 +363,7 @@ export default function EventDetail() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       
-      alert("Template image updated successfully");
+      setStatusMessage({ message: "Template image updated successfully", type: "success" });
       setEditingTemplateImage(false);
       setTemplateImageFile(null);
       if (templateImageInputRef.current) {
@@ -343,7 +371,7 @@ export default function EventDetail() {
       }
       await loadTemplates();
     } catch (err) {
-      alert("Failed to update template image: " + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: "Failed to update template image: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setSavingTemplateImage(false);
     }
@@ -351,7 +379,7 @@ export default function EventDetail() {
 
   const testTemplatePdf = async () => {
     if (!selectedTemplateId) {
-      alert("Select a template to test.");
+      setStatusMessage({ message: "Select a template to test.", type: "warning" });
       return;
     }
     setTestingTemplate(true);
@@ -380,8 +408,9 @@ export default function EventDetail() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      setStatusMessage({ message: "Test PDF downloaded successfully", type: "success" });
     } catch (err) {
-      alert("Failed to download test PDF: " + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: "Failed to download test PDF: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setTestingTemplate(false);
     }
@@ -390,7 +419,7 @@ export default function EventDetail() {
   const addParticipant = async (e) => {
     e.preventDefault();
     if (!manualParticipantForm.name.trim()) {
-      alert("Participant name is required");
+      setStatusMessage({ message: "Participant name is required", type: "warning" });
       return;
     }
     setAddingParticipant(true);
@@ -402,11 +431,11 @@ export default function EventDetail() {
         roll_no: manualParticipantForm.roll_no.trim() || null,
         department: manualParticipantForm.department.trim() || null,
       });
-      alert("Participant added successfully!");
+      setStatusMessage({ message: "Participant added successfully!", type: "success" });
       setManualParticipantForm({ name: "", email: "", roll_no: "", department: "" });
       await loadParticipants();
     } catch (err) {
-      alert("Failed to add participant: " + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: "Failed to add participant: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setAddingParticipant(false);
     }
@@ -414,90 +443,97 @@ export default function EventDetail() {
 
   const closeEvent = async () => {
     if (!event || !event.is_active) {
-      alert("This event is not active or not found");
+      setStatusMessage({ message: "This event is not active or not found", type: "success" });
       return;
     }
-    if (!confirm(`Close event "${event.name}"? Once closed, no new certificates can be issued for this event.`)) {
-      return;
-    }
-    setClosingEvent(true);
-    try {
-      await api.patch(`/events/${id}/close?admin_secret=${adminSecret}`);
-      alert("Event closed successfully");
-      await loadEvent();
-    } catch (err) {
-      alert("Failed to close event: " + (err.response?.data?.detail || err.message));
-    } finally {
-      setClosingEvent(false);
-    }
+    
+    setConfirmModal({
+      isOpen: true,
+      title: "Close Event",
+      message: `Are you sure you want to close event "${event.name}"? Once closed, no new certificates can be issued for this event.`,
+      type: "danger",
+      onConfirm: async () => {
+        setClosingEvent(true);
+        try {
+          await api.patch(`/events/${id}/close?admin_secret=${adminSecret}`);
+          setStatusMessage({ message: "Event closed successfully", type: "success" });
+          await loadEvent();
+        } catch (err) {
+          setStatusMessage({ message: "Failed to close event: " + (err.response?.data?.detail || err.message), type: "error" });
+        } finally {
+          setClosingEvent(false);
+        }
+      }
+    });
   };
 
   const generateCertificates = async () => {
     if (!selectedTemplateId) {
-      alert("Select a certificate template before generating.");
+      setStatusMessage({ message: "Select a certificate template before generating.", type: "success" });
       return;
     }
 
-    if (!confirm("Generate certificates for all participants? This may take a while.")) {
-      return;
-    }
-
-    setGenerating(true);
-    try {
-      const response = await api.post(
-        `/certificates/generate_for_event/${id}?admin_secret=${adminSecret}`,
-        { template_id: selectedTemplateId }
-      );
-      alert(response.data.message);
-      loadCertificates();
-    } catch (err) {
-      alert("Failed to generate certificates: " + (err.response?.data?.detail || err.message));
-    } finally {
-      setGenerating(false);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Generate Certificates",
+      message: "Generate certificates for all participants? This may take a while.",
+      onConfirm: async () => {
+        setGenerating(true);
+        try {
+          const response = await api.post(
+            `/certificates/generate_for_event/${id}?admin_secret=${adminSecret}`,
+            { template_id: selectedTemplateId }
+          );
+          setStatusMessage({ message: response.data.message, type: "success" });
+          loadCertificates();
+        } catch (err) {
+          setStatusMessage({ message: "Failed to generate certificates: " + (err.response?.data?.detail || err.message), type: "error" });
+        } finally {
+          setGenerating(false);
+        }
+      }
+    });
   };
 
   const sendCertificateLinks = async () => {
     if (!selectedTemplateId) {
-      alert("Please select a certificate template first.");
+      setStatusMessage({ message: "Please select a certificate template first.", type: "warning" });
       return;
     }
 
     if (participants.length === 0) {
-      alert("No participants to send emails to.");
+      setStatusMessage({ message: "No participants to send emails to.", type: "success" });
       return;
     }
 
     const participantsWithEmail = participants.filter(p => p.email);
     if (participantsWithEmail.length === 0) {
-      alert("No participants have email addresses.");
+      setStatusMessage({ message: "No participants have email addresses.", type: "success" });
       return;
     }
 
-    if (!confirm(`Send certificate generation links to ${participantsWithEmail.length} participants via email?`)) {
-      return;
-    }
-
-    setSendingEmails(true);
-    try {
-      const response = await api.post(
-        `/participants/send_certificate_links/${id}?admin_secret=${adminSecret}&template_id=${selectedTemplateId}`
-      );
-      alert(`✅ ${response.data.message}\n\nSent: ${response.data.sent}\nFailed: ${response.data.failed}`);
-    } catch (err) {
-      alert("Failed to send emails: " + (err.response?.data?.detail || err.message));
-    } finally {
-      setSendingEmails(false);
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: "Send Certificate Links",
+      message: `Send certificate generation links to ${participantsWithEmail.length} participants via email?`,
+      onConfirm: async () => {
+        setSendingEmails(true);
+        try {
+          const response = await api.post(
+            `/participants/send_certificate_links/${id}?admin_secret=${adminSecret}&template_id=${selectedTemplateId}`
+          );
+          setStatusMessage({ message: `${response.data.message}\n\nSent: ${response.data.sent}\nFailed: ${response.data.failed}`, type: "success" });
+        } catch (err) {
+          setStatusMessage({ message: "Failed to send emails: " + (err.response?.data?.detail || err.message), type: "error" });
+        } finally {
+          setSendingEmails(false);
+        }
+      }
+    });
   };
 
   if (loading) {
-    return (
-      <div className="app-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "60vh" }}>
-        <div className="loading-spinner" style={{ width: "48px", height: "48px", borderWidth: "4px" }}></div>
-        <span style={{ marginTop: "1.5rem", color: "var(--text-muted)", fontSize: "1rem" }}>Loading event details...</span>
-      </div>
-    );
+    return <Loading fullScreen size="large" text="Loading event details..." />;
   }
 
   if (!event) {
@@ -517,6 +553,15 @@ export default function EventDetail() {
 
   return (
     <div className="app-container">
+      {/* Status Message */}
+      {statusMessage.message && (
+        <StatusBanner
+          message={statusMessage.message}
+          type={statusMessage.type}
+          onDismiss={() => setStatusMessage({ message: "", type: "" })}
+        />
+      )}
+      
       <div className="flex justify-between items-center mb-4">
         <Link to="/admin/events" className="btn btn-secondary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1384,6 +1429,15 @@ export default function EventDetail() {
           </div>
         </div>
       )}
+      
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+      />
     </div>
   );
 }
@@ -1652,14 +1706,14 @@ function LayoutControls({ layout, onChange, onAddField, onRemoveField }) {
 
   const handleAddNewField = () => {
     if (!newFieldName.trim()) {
-      alert("Please enter a field name");
+      // Just return silently - the UI shows the input is required
       return;
     }
     
     const fieldKey = newFieldName.trim().toLowerCase().replace(/\s+/g, "_");
     
     if (allFields.includes(fieldKey)) {
-      alert("This field already exists");
+      // Visual feedback will be shown in UI
       return;
     }
     
@@ -1673,11 +1727,12 @@ function LayoutControls({ layout, onChange, onAddField, onRemoveField }) {
 
   const handleRemoveField = (fieldKey) => {
     if (predefinedFields.includes(fieldKey)) {
-      if (!confirm(`Remove the "${fieldKey}" field from the certificate?`)) {
-        return;
+      // Let the parent handle confirmation via modal
+      if (onRemoveField) {
+        onRemoveField(fieldKey);
       }
+      return;
     }
-    
     if (onRemoveField) {
       onRemoveField(fieldKey);
     }
