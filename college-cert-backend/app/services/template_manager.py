@@ -14,10 +14,10 @@ CACHE_DIR = "/tmp/template-images" if os.environ.get("VERCEL") else os.path.join
 TEMPLATES_TABLE = "certificate_templates"
 
 DEFAULT_LAYOUT = {
-    "name": {"x": 0.5, "y": 0.4, "font_size": 60, "align": "center", "color": "#000000"},
-    "event": {"x": 0.5, "y": 0.5, "font_size": 40, "align": "center", "color": "#000000"},
-    "date": {"x": 0.15, "y": 0.8, "font_size": 30, "align": "left", "color": "#000000"},
-    "code": {"x": 0.85, "y": 0.9, "font_size": 30, "align": "right", "color": "#000000"},
+    "name": {"x": 0.5, "y": 0.4, "font_size": 60, "align": "center", "color": "#000000", "font_family": "Arial"},
+    "event": {"x": 0.5, "y": 0.5, "font_size": 40, "align": "center", "color": "#000000", "font_family": "Arial"},
+    "date": {"x": 0.15, "y": 0.8, "font_size": 30, "align": "left", "color": "#000000", "font_family": "Arial"},
+    "code": {"x": 0.85, "y": 0.9, "font_size": 30, "align": "right", "color": "#000000", "font_family": "Arial"},
     "qr": {"x": 0.08, "y": 0.7, "size": 0.18}
 }
 
@@ -51,10 +51,19 @@ def _parse_layout(raw: Any) -> Dict[str, Any]:
         return _default_layout_copy()
     if isinstance(raw, str):
         try:
-            return json.loads(raw)
+            parsed = json.loads(raw)
         except json.JSONDecodeError:
             return _default_layout_copy()
-    return json.loads(json.dumps(raw))
+    else:
+        parsed = json.loads(json.dumps(raw))
+    
+    # Normalize: ensure all text fields have font_family default
+    for key, value in parsed.items():
+        if key != 'qr' and isinstance(value, dict):
+            if 'font_size' in value and not value.get('font_family'):
+                value['font_family'] = 'Arial'
+    
+    return parsed
 
 
 def _serialize_template(record: Dict[str, Any]) -> Dict[str, Any]:

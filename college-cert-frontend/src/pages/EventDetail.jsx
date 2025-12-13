@@ -153,7 +153,19 @@ export default function EventDetail() {
       return;
     }
     console.log("[DEBUG] Template changed, setting layoutDraft from template.layout:", JSON.stringify(template.layout, null, 2));
-    setLayoutDraft(cloneLayout(template.layout));
+    
+    // Normalize the layout to ensure all text fields have proper defaults
+    const normalizedLayout = cloneLayout(template.layout);
+    Object.keys(normalizedLayout).forEach(key => {
+      if (key !== 'qr' && normalizedLayout[key]) {
+        // Ensure font_family has a default value if null/undefined
+        if (!normalizedLayout[key].font_family) {
+          normalizedLayout[key].font_family = "Arial";
+        }
+      }
+    });
+    
+    setLayoutDraft(normalizedLayout);
     setIsEditingLayout(false);
   }, [selectedTemplateId, templates]);
 
@@ -265,7 +277,8 @@ export default function EventDetail() {
           y: 50,
           font_size: 24,
           align: "center",
-          color: "#000000"
+          color: "#000000",
+          font_family: "Arial"
         }
       };
     });
