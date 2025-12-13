@@ -112,17 +112,9 @@ def update_template(template_id: str, updates: Dict[str, Any]) -> Dict[str, Any]
     if "image_url" in updates:
         merged["image_url"] = updates["image_url"]
     if "layout" in updates and updates["layout"] is not None:
-        layout_updates = updates["layout"]
-        if isinstance(layout_updates, dict):
-            base_layout = merged.get("layout", {})
-            for key, value in layout_updates.items():
-                if value is None:
-                    continue
-                if isinstance(value, dict):
-                    base_layout[key] = {**base_layout.get(key, {}), **value}
-                else:
-                    base_layout[key] = value
-            merged["layout"] = base_layout
+        # Replace the entire layout instead of merging
+        # This fixes the issue where removed fields persist
+        merged["layout"] = updates["layout"]
 
     payload = {
         "name": merged["name"],

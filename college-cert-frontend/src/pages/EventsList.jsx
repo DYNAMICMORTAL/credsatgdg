@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
 import Loading from "../components/Loading";
-import { useToast } from "../components/ToastContainer";
+import StatusBanner from "../components/StatusBanner";
 
 export default function EventsList() {
   const [events, setEvents] = useState([]);
   const [form, setForm] = useState({ name: "", description: "", date: "" });
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const toast = useToast();
+  const [statusMessage, setStatusMessage] = useState({ message: "", type: "" });
 
   const adminSecret = import.meta.env.VITE_ADMIN_SECRET;
 
@@ -19,8 +19,9 @@ export default function EventsList() {
       const res = await api.get("/events/");
       // Ensure we always set an array
       setEvents(Array.isArray(res.data) ? res.data : []);
+      setStatusMessage({ message: "", type: "" });
     } catch (err) {
-      toast.showError("Failed to load events. Please try again.");
+      setStatusMessage({ message: "Failed to load events. Please try again.", type: "error" });
       console.error(err);
       setEvents([]); // Set empty array on error
     } finally {
@@ -36,18 +37,19 @@ export default function EventsList() {
     e.preventDefault();
     
     if (!form.name || !form.date) {
-      toast.showWarning("Please fill in event name and date");
+      setStatusMessage({ message: "Please fill in event name and date", type: "warning" });
       return;
     }
 
     try {
       setCreating(true);
+      setStatusMessage({ message: "", type: "" });
       await api.post(`/events/?admin_secret=${adminSecret}`, form);
       setForm({ name: "", description: "", date: "" });
+      setStatusMessage({ message: "Event created successfully!", type: "success" });
       loadEvents();
-      toast.showSuccess("Event created successfully!");
     } catch (err) {
-      toast.showError("Failed to create event: " + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: "Failed to create event: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setCreating(false);
     }
@@ -66,16 +68,32 @@ export default function EventsList() {
         </Link>
         
         <div style={{ marginBottom: "2rem" }}>
-          <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem", fontWeight: "800" }}>Events Management</h1>
-          <p style={{ color: "var(--text-muted)", fontSize: "1rem" }}>Create and manage certificate events for your organization</p>
+          <h1 style={{ fontSize: "2.5rem", marginBottom: "0.75rem", fontWeight: "800", background: "linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Events Management</h1>
+          <p style={{ color: "var(--text-muted)", fontSize: "1.125rem" }}>Create and manage certificate events for your organization</p>
         </div>
       </div>
 
+      {/* Status Message */}
+      {statusMessage.message && (
+        <StatusBanner
+          message={statusMessage.message}
+          type={statusMessage.type}
+          onDismiss={() => setStatusMessage({ message: "", type: "" })}
+        />
+      )}
+
       {/* Create Event Form */}
-      <div className="card" style={{ marginBottom: "2.5rem", padding: "2rem", border: "1px solid var(--border-color)", animation: "slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both" }}>
-        <div style={{ marginBottom: "1.5rem", paddingBottom: "1rem", borderBottom: "2px solid var(--border-light)" }}>
-          <h2 style={{ fontSize: "1.375rem", marginBottom: "0.25rem", fontWeight: "700" }}>Create New Event</h2>
-          <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "0.875rem" }}>Set up event details to begin issuing certificates</p>
+      <div className="card" style={{ marginBottom: "2.5rem", padding: "2.5rem", border: "2px solid var(--primary)", animation: "slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both", background: "linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, white 100%)", boxShadow: "0 4px 20px rgba(99, 102, 241, 0.1)" }}>
+        <div style={{ marginBottom: "2rem", paddingBottom: "1.25rem", borderBottom: "3px solid var(--primary)", display: "flex", alignItems: "center", gap: "1rem" }}>
+          <div style={{ width: "48px", height: "48px", borderRadius: "var(--radius-lg)", background: "linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
+          </div>
+          <div>
+            <h2 style={{ fontSize: "1.5rem", marginBottom: "0.25rem", fontWeight: "700" }}>Create New Event</h2>
+            <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "0.9375rem" }}>Set up event details to begin issuing certificates</p>
+          </div>
         </div>
         
         <form onSubmit={createEvent}>
@@ -137,10 +155,16 @@ export default function EventsList() {
       </div>
 
       {/* All Events Section */}
-      <div className="card" style={{ padding: "2rem", border: "1px solid var(--border-color)", animation: "slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both" }}>
-        <div style={{ marginBottom: "2rem", paddingBottom: "1rem", borderBottom: "2px solid var(--border-light)" }}>
-          <h2 style={{ fontSize: "1.375rem", marginBottom: "0.25rem", fontWeight: "700" }}>All Events</h2>
-          <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "0.875rem" }}>Manage your created events and their certificates</p>
+      <div className="card" style={{ padding: "2.5rem", border: "2px solid var(--border-color)", animation: "slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both", background: "white" }}>
+        <div style={{ marginBottom: "2rem", paddingBottom: "1.25rem", borderBottom: "3px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem", fontWeight: "700", display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <span style={{ width: "8px", height: "8px", borderRadius: "50%", background: "var(--secondary)", display: "inline-block" }}></span>
+              All Events
+              {events.length > 0 && <span style={{ fontSize: "0.875rem", color: "var(--text-muted)", fontWeight: "500" }}>({events.length})</span>}
+            </h2>
+            <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "0.9375rem" }}>Manage your created events and their certificates</p>
+          </div>
         </div>
         
         {loading && (
@@ -165,30 +189,49 @@ export default function EventsList() {
         )}
 
         {!loading && events.length > 0 && (
-          <div style={{ display: "grid", gap: "1rem" }}>
-            {events.map((ev) => (
+          <div style={{ display: "grid", gap: "1.25rem" }}>
+            {events.map((ev, index) => (
               <div
                 key={ev.id}
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  padding: "1.5rem",
-                  background: "white",
-                  border: "1px solid var(--border-color)",
-                  borderRadius: "var(--radius-lg)",
-                  transition: "all 0.2s ease",
-                  gap: "1.5rem"
+                  padding: "2rem",
+                  background: "linear-gradient(135deg, white 0%, var(--bg-subtle) 100%)",
+                  border: "2px solid var(--border-color)",
+                  borderRadius: "var(--radius-xl)",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  gap: "2rem",
+                  position: "relative",
+                  overflow: "hidden"
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = "var(--primary)";
-                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(99,102,241,0.1)";
+                  e.currentTarget.style.boxShadow = "0 8px 24px rgba(99,102,241,0.15)";
+                  e.currentTarget.style.transform = "translateY(-2px)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.borderColor = "var(--border-color)";
                   e.currentTarget.style.boxShadow = "none";
+                  e.currentTarget.style.transform = "translateY(0)";
                 }}
               >
+                {/* Event number badge */}
+                <div style={{
+                  position: "absolute",
+                  top: "-10px",
+                  left: "20px",
+                  background: ev.is_active ? "linear-gradient(135deg, var(--secondary) 0%, #059669 100%)" : "linear-gradient(135deg, var(--text-muted) 0%, #64748b 100%)",
+                  color: "white",
+                  padding: "0.375rem 1rem",
+                  borderRadius: "999px",
+                  fontSize: "0.75rem",
+                  fontWeight: "700",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)"
+                }}>
+                  #{index + 1}
+                </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
                     <h3 style={{ fontSize: "1.125rem", fontWeight: "700", margin: 0 }}>{ev.name}</h3>

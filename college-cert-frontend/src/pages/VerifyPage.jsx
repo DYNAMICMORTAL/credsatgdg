@@ -1,16 +1,16 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
-import { useToast } from "../components/ToastContainer";
+import StatusBanner from "../components/StatusBanner";
 
 export default function VerifyPage() {
   const { code } = useParams();
   const navigate = useNavigate();
-  const toast = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [inputCode, setInputCode] = useState(code ?? "");
   const [formError, setFormError] = useState("");
+  const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
     setInputCode(code ?? "");
@@ -166,20 +166,42 @@ export default function VerifyPage() {
           {!!shareUrl && (
             <div className="share-section">
               <label>Shareable Verification Link</label>
+              {copySuccess && (
+                <StatusBanner
+                  message="Verification link copied to clipboard!"
+                  type="success"
+                  onDismiss={() => setCopySuccess(false)}
+                  autoDismiss={true}
+                  duration={3000}
+                />
+              )}
               <div className="share-input-group">
                 <input readOnly value={shareUrl} className="share-input" />
                 <button 
                   className="btn btn-secondary"
                   onClick={() => {
                     navigator.clipboard.writeText(shareUrl);
-                    toast.showSuccess('Verification link copied to clipboard!');
+                    setCopySuccess(true);
+                    setTimeout(() => setCopySuccess(false), 3000);
                   }}
+                  style={{ position: "relative" }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                  </svg>
-                  Copy Link
+                  {copySuccess ? (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                      </svg>
+                      Copy Link
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -246,17 +268,21 @@ export default function VerifyPage() {
 
   return (
     <div className="verify-page" style={{ animation: "fadeIn 0.5s ease" }}>
-      <div className="verify-hero-official" style={{ animation: "slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+      <div className="verify-hero-official" style={{ animation: "slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1)", position: "relative", overflow: "hidden" }}>
+        {/* Decorative elements */}
+        <div style={{ position: "absolute", top: "-50px", right: "-50px", width: "200px", height: "200px", borderRadius: "50%", background: "radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)", pointerEvents: "none" }}></div>
+        <div style={{ position: "absolute", bottom: "-30px", left: "-30px", width: "150px", height: "150px", borderRadius: "50%", background: "radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)", pointerEvents: "none" }}></div>
+        
         <div className="official-header">
-          <div className="institution-badge">
+          <div className="institution-badge" style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.2)" }}>
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
               <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
             </svg>
           </div>
           <div className="official-title">
-            <h1>Official Certificate Verification Portal</h1>
-            <p>Secure credential authentication system</p>
+            <h1 style={{ fontSize: "2.5rem", marginBottom: "0.75rem" }}>Official Certificate Verification Portal</h1>
+            <p style={{ fontSize: "1.25rem" }}>Secure credential authentication system</p>
           </div>
         </div>
         

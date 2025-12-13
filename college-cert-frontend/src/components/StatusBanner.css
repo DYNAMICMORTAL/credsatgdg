@@ -1,0 +1,98 @@
+.status-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 1.5rem;
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border-left: 4px solid;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.status-banner-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.status-banner-message {
+  flex: 1;
+}
+
+.status-banner-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s ease;
+  opacity: 0.6;
+}
+
+.status-banner-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Success Banner */
+.status-banner-success {
+  background-color: #d1fae5;
+  border-color: #10b981;
+  color: #065f46;
+}
+
+.status-banner-success .status-banner-icon {
+  color: #10b981;
+}
+
+/* Error Banner */
+.status-banner-error {
+  background-color: #fee2e2;
+  border-color: #ef4444;
+  color: #991b1b;
+}
+
+.status-banner-error .status-banner-icon {
+  color: #ef4444;
+}
+
+/* Warning Banner */
+.status-banner-warning {
+  background-color: #fef3c7;
+  border-color: #f59e0b;
+  color: #92400e;
+}
+
+.status-banner-warning .status-banner-icon {
+  color: #f59e0b;
+}
+
+/* Info Banner */
+.status-banner-info {
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+  color: #1e40af;
+}
+
+.status-banner-info .status-banner-icon {
+  color: #3b82f6;
+}

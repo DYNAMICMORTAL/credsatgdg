@@ -4,16 +4,42 @@ import "./App.css";
 export default function App() {
   return (
     <div className="app-container" style={{ animation: "fadeIn 0.5s ease" }}>
-      <div className="hero" style={{ animation: "slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1)" }}>
-        <h1 style={{ animation: "fadeIn 0.8s ease 0.2s both" }}>Digital Certificate Management</h1>
-        <p style={{ animation: "fadeIn 0.8s ease 0.3s both" }}>Create Events, Upload Participants, Generate Certificate Links</p>
-        <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap", animation: "fadeIn 0.8s ease 0.4s both" }}>
-          <Link to="/admin" className="btn btn-primary" style={{ fontSize: "1rem", padding: "0.875rem 1.75rem" }}>
-            Get Started
-          </Link>
-          <Link to="/verify" className="btn" style={{ fontSize: "1rem", padding: "0.875rem 1.75rem", background: "rgba(255,255,255,0.2)", color: "white", border: "1px solid rgba(255,255,255,0.3)" }}>
-            Verify Certificate
-          </Link>
+      <div className="hero" style={{ animation: "slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1)", position: "relative", overflow: "visible" }}>
+        {/* Floating badges */}
+        <div style={{ position: "absolute", top: "20px", right: "20px", display: "flex", gap: "0.75rem", animation: "fadeIn 1s ease 0.5s both" }}>
+          <span style={{ background: "rgba(255,255,255,0.2)", backdropFilter: "blur(10px)", padding: "0.5rem 1rem", borderRadius: "999px", fontSize: "0.75rem", fontWeight: "600", border: "1px solid rgba(255,255,255,0.3)" }}>
+            🔒 Secure
+          </span>
+          <span style={{ background: "rgba(255,255,255,0.2)", backdropFilter: "blur(10px)", padding: "0.5rem 1rem", borderRadius: "999px", fontSize: "0.75rem", fontWeight: "600", border: "1px solid rgba(255,255,255,0.3)" }}>
+            ⚡ Fast
+          </span>
+        </div>
+        
+        <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+          <div style={{ display: "inline-block", background: "rgba(255,255,255,0.2)", backdropFilter: "blur(10px)", padding: "0.5rem 1.25rem", borderRadius: "999px", fontSize: "0.875rem", fontWeight: "600", marginBottom: "1.5rem", border: "1px solid rgba(255,255,255,0.3)", animation: "fadeIn 0.8s ease 0.1s both" }}>
+            ✨ Professional Certificate Platform
+          </div>
+          <h1 style={{ animation: "fadeIn 0.8s ease 0.2s both", fontSize: "3.5rem", lineHeight: "1.1", marginBottom: "1.25rem" }}>
+            Digital Certificate Management
+          </h1>
+          <p style={{ animation: "fadeIn 0.8s ease 0.3s both", fontSize: "1.25rem", opacity: "0.95", maxWidth: "600px", margin: "0 auto 2.5rem" }}>
+            Create Events, Upload Participants, Generate Certificate Links with ease
+          </p>
+          <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap", animation: "fadeIn 0.8s ease 0.4s both" }}>
+            <Link to="/admin" className="btn btn-primary" style={{ fontSize: "1.125rem", padding: "1rem 2.5rem", boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="13 17 18 12 13 7"></polyline>
+                <polyline points="6 17 11 12 6 7"></polyline>
+              </svg>
+              Get Started
+            </Link>
+            <Link to="/verify" className="btn" style={{ fontSize: "1.125rem", padding: "1rem 2.5rem", background: "rgba(255,255,255,0.15)", color: "white", border: "2px solid rgba(255,255,255,0.3)", backdropFilter: "blur(10px)" }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Verify Certificate
+            </Link>
+          </div>
         </div>
       </div>
 
