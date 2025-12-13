@@ -152,6 +152,7 @@ export default function EventDetail() {
       setIsEditingLayout(false);
       return;
     }
+    console.log("[DEBUG] Template changed, setting layoutDraft from template.layout:", JSON.stringify(template.layout, null, 2));
     setLayoutDraft(cloneLayout(template.layout));
     setIsEditingLayout(false);
   }, [selectedTemplateId, templates]);
@@ -297,13 +298,16 @@ export default function EventDetail() {
     if (!layoutDraft || !selectedTemplateId) return;
     setSavingLayout(true);
     try {
-      await api.put(`/certificates/templates/${selectedTemplateId}?admin_secret=${adminSecret}`, {
+      console.log("[DEBUG] Saving layout:", JSON.stringify(layoutDraft, null, 2));
+      const response = await api.put(`/certificates/templates/${selectedTemplateId}?admin_secret=${adminSecret}`, {
         layout: layoutDraft,
       });
+      console.log("[DEBUG] Save response:", JSON.stringify(response.data, null, 2));
       setStatusMessage({ message: "Layout updated successfully", type: "success" });
       setIsEditingLayout(false);
       await loadTemplates();
     } catch (err) {
+      console.error("[DEBUG] Save error:", err);
       setStatusMessage({ message: "Failed to save layout: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setSavingLayout(false);

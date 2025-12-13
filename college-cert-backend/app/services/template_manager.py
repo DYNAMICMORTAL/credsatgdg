@@ -123,10 +123,18 @@ def update_template(template_id: str, updates: Dict[str, Any]) -> Dict[str, Any]
         "layout": merged.get("layout", _default_layout_copy()),
     }
 
-    supabase.table(TEMPLATES_TABLE).update(payload).eq("id", template_id).execute()
+    # Debug logging to verify what's being saved
+    print(f"[DEBUG] Updating template {template_id}")
+    print(f"[DEBUG] Payload layout being saved: {json.dumps(payload['layout'], indent=2)}")
+    
+    result = supabase.table(TEMPLATES_TABLE).update(payload).eq("id", template_id).execute()
+    print(f"[DEBUG] Update result data: {json.dumps(result.data, indent=2) if result.data else 'None'}")
     
     # Refetch from database to ensure we return exactly what was saved
-    return get_template(template_id)
+    refetched = get_template(template_id)
+    print(f"[DEBUG] Refetched layout: {json.dumps(refetched.get('layout'), indent=2)}")
+    
+    return refetched
 
 
 def delete_template(template_id: str) -> Dict[str, Any]:
