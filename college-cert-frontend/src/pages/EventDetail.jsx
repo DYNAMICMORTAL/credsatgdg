@@ -2,7 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import api from "../api";
 import Loading from "../components/Loading";
-import { useToast } from "../components/ToastContainer";
+import StatusBanner from "../components/StatusBanner";
 import { ConfirmModal } from "../components/Modal";
 const formatSampleDate = (value) => {
   if (!value) return "18 October 2025";
@@ -19,7 +19,7 @@ const formatSampleDate = (value) => {
 
 export default function EventDetail() {
   const { id } = useParams();
-  const toast = useToast();
+  const [statusMessage, setStatusMessage] = useState({ message: "", type: "" });
   const [event, setEvent] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [certs, setCerts] = useState([]);
@@ -161,7 +161,7 @@ export default function EventDetail() {
     
     if (uploadType === "sheets") {
       if (!sheetsUrl.trim()) {
-        toast.showWarning("Please enter a Google Sheets URL");
+        setStatusMessage({ message: "Please enter a Google Sheets URL", type: "warning" });
         return;
       }
 
@@ -170,11 +170,11 @@ export default function EventDetail() {
       
       try {
         const response = await api.post(url);
-        toast.showSuccess(response.data.message);
+        setStatusMessage({ message: response.data.message, type: "success" });
         setSheetsUrl("");
         loadParticipants();
       } catch (err) {
-        toast.showError("Failed to import from Google Sheets: " + (err.response?.data?.detail || err.message));
+        setStatusMessage({ message: "Failed to import from Google Sheets: " + (err.response?.data?.detail || err.message), type: "error" });
       } finally {
         setUploading(false);
       }
@@ -182,7 +182,7 @@ export default function EventDetail() {
     }
 
     if (!csvFile) {
-      toast.showWarning(`Please select a ${uploadType === "excel" ? "Excel" : "CSV"} file`);
+      setStatusMessage({ message: `Please select a ${uploadType === "excel" ? "Excel" : "CSV"} file`, type: "warning" });
       return;
     }
 
@@ -197,13 +197,13 @@ export default function EventDetail() {
       const response = await api.post(url, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      toast.showSuccess(response.data.message);
+      setStatusMessage({ message: response.data.message, type: "success" });
       setCsvFile(null);
       const fileInput = document.getElementById("fileInput");
       if (fileInput) fileInput.value = "";
       loadParticipants();
     } catch (err) {
-      toast.showError(`Failed to upload ${uploadType === "excel" ? "Excel" : "CSV"}: ` + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: `Failed to upload ${uploadType === "excel" ? "Excel" : "CSV"}: ` + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setUploading(false);
     }
@@ -212,7 +212,7 @@ export default function EventDetail() {
   const handleTemplateUpload = async (e) => {
     e.preventDefault();
     if (!templateForm.templateId.trim() || !templateForm.name.trim() || !templateFile) {
-      toast.showWarning("Template ID, name, and image are required.");
+      setStatusMessage({ message: "Template ID, name, and image are required.", type: "warning" });
       return;
     }
 
@@ -230,7 +230,7 @@ export default function EventDetail() {
       await api.post("/certificates/templates/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      toast.showSuccess("Template uploaded successfully!");
+      setStatusMessage({ message: "Template uploaded successfully!", type: "success" });
       setTemplateForm({ templateId: "", name: "", layoutJson: "" });
       setTemplateFile(null);
       if (templateFileInputRef.current) {
@@ -238,7 +238,7 @@ export default function EventDetail() {
       }
       loadTemplates();
     } catch (err) {
-      toast.showError("Failed to upload template: " + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: "Failed to upload template: " + (err.response?.data?.detail || err.message, type: "error" });)
     } finally {
       setTemplateUploading(false);
     }
@@ -300,11 +300,11 @@ export default function EventDetail() {
       await api.put(`/certificates/templates/${selectedTemplateId}?admin_secret=${adminSecret}`, {
         layout: layoutDraft,
       });
-      toast.showSuccess("Layout updated successfully");
+      setStatusMessage({ message: "Layout updated successfully", type: "success" });
       setIsEditingLayout(false);
       await loadTemplates();
     } catch (err) {
-      toast.showError("Failed to save layout: " + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: "Failed to save layout: " + (err.response?.data?.detail || err.message, type: "error" });)
     } finally {
       setSavingLayout(false);
     }
@@ -322,11 +322,11 @@ export default function EventDetail() {
         setDeletingTemplate(true);
         try {
           await api.delete(`/certificates/templates/${selectedTemplateId}?admin_secret=${adminSecret}`);
-          toast.showSuccess("Template deleted successfully");
+          setStatusMessage({ message: "Template deleted successfully", type: "success" });
           setSelectedTemplateId("");
           await loadTemplates();
         } catch (err) {
-          toast.showError("Failed to delete template: " + (err.response?.data?.detail || err.message));
+          setStatusMessage({ message: "Failed to delete template: " + (err.response?.data?.detail || err.message, type: "error" });)
         } finally {
           setDeletingTemplate(false);
         }
@@ -346,7 +346,7 @@ export default function EventDetail() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       
-      toast.showSuccess("Template image updated successfully");
+      setStatusMessage({ message: "Template image updated successfully", type: "success" });
       setEditingTemplateImage(false);
       setTemplateImageFile(null);
       if (templateImageInputRef.current) {
@@ -354,7 +354,7 @@ export default function EventDetail() {
       }
       await loadTemplates();
     } catch (err) {
-      toast.showError("Failed to update template image: " + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: "Failed to update template image: " + (err.response?.data?.detail || err.message, type: "error" });)
     } finally {
       setSavingTemplateImage(false);
     }
@@ -362,7 +362,7 @@ export default function EventDetail() {
 
   const testTemplatePdf = async () => {
     if (!selectedTemplateId) {
-      toast.showWarning("Select a template to test.");
+      setStatusMessage({ message: "Select a template to test.", type: "warning" });
       return;
     }
     setTestingTemplate(true);
@@ -391,9 +391,9 @@ export default function EventDetail() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      toast.showSuccess("Test PDF downloaded successfully");
+      setStatusMessage({ message: "Test PDF downloaded successfully", type: "success" });
     } catch (err) {
-      toast.showError("Failed to download test PDF: " + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: "Failed to download test PDF: " + (err.response?.data?.detail || err.message, type: "error" });)
     } finally {
       setTestingTemplate(false);
     }
@@ -402,7 +402,7 @@ export default function EventDetail() {
   const addParticipant = async (e) => {
     e.preventDefault();
     if (!manualParticipantForm.name.trim()) {
-      toast.showWarning("Participant name is required");
+      setStatusMessage({ message: "Participant name is required", type: "warning" });
       return;
     }
     setAddingParticipant(true);
@@ -414,11 +414,11 @@ export default function EventDetail() {
         roll_no: manualParticipantForm.roll_no.trim() || null,
         department: manualParticipantForm.department.trim() || null,
       });
-      toast.showSuccess("Participant added successfully!");
+      setStatusMessage({ message: "Participant added successfully!", type: "success" });
       setManualParticipantForm({ name: "", email: "", roll_no: "", department: "" });
       await loadParticipants();
     } catch (err) {
-      toast.showError("Failed to add participant: " + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: "Failed to add participant: " + (err.response?.data?.detail || err.message, type: "error" });)
     } finally {
       setAddingParticipant(false);
     }
@@ -426,7 +426,7 @@ export default function EventDetail() {
 
   const closeEvent = async () => {
     if (!event || !event.is_active) {
-      toast.showWarning("This event is not active or not found");
+      setStatusMessage({ message: "This event is not active or not found", type: "success" });
       return;
     }
     
@@ -439,10 +439,10 @@ export default function EventDetail() {
         setClosingEvent(true);
         try {
           await api.patch(`/events/${id}/close?admin_secret=${adminSecret}`);
-          toast.showSuccess("Event closed successfully");
+          setStatusMessage({ message: "Event closed successfully", type: "success" });
           await loadEvent();
         } catch (err) {
-          toast.showError("Failed to close event: " + (err.response?.data?.detail || err.message));
+          setStatusMessage({ message: "Failed to close event: " + (err.response?.data?.detail || err.message, type: "error" });)
         } finally {
           setClosingEvent(false);
         }
@@ -452,7 +452,7 @@ export default function EventDetail() {
 
   const generateCertificates = async () => {
     if (!selectedTemplateId) {
-      toast.showWarning("Select a certificate template before generating.");
+      setStatusMessage({ message: "Select a certificate template before generating.", type: "success" });
       return;
     }
 
@@ -467,10 +467,10 @@ export default function EventDetail() {
             `/certificates/generate_for_event/${id}?admin_secret=${adminSecret}`,
             { template_id: selectedTemplateId }
           );
-          toast.showSuccess(response.data.message);
+          setStatusMessage({ message: response.data.message, type: "success" });
           loadCertificates();
         } catch (err) {
-          toast.showError("Failed to generate certificates: " + (err.response?.data?.detail || err.message));
+          setStatusMessage({ message: "Failed to generate certificates: " + (err.response?.data?.detail || err.message, type: "error" });)
         } finally {
           setGenerating(false);
         }
@@ -480,18 +480,18 @@ export default function EventDetail() {
 
   const sendCertificateLinks = async () => {
     if (!selectedTemplateId) {
-      toast.showWarning("Please select a certificate template first.");
+      setStatusMessage({ message: "Please select a certificate template first.", type: "warning" });
       return;
     }
 
     if (participants.length === 0) {
-      toast.showWarning("No participants to send emails to.");
+      setStatusMessage({ message: "No participants to send emails to.", type: "success" });
       return;
     }
 
     const participantsWithEmail = participants.filter(p => p.email);
     if (participantsWithEmail.length === 0) {
-      toast.showWarning("No participants have email addresses.");
+      setStatusMessage({ message: "No participants have email addresses.", type: "success" });
       return;
     }
 
@@ -505,9 +505,9 @@ export default function EventDetail() {
           const response = await api.post(
             `/participants/send_certificate_links/${id}?admin_secret=${adminSecret}&template_id=${selectedTemplateId}`
           );
-          toast.showSuccess(`${response.data.message}\n\nSent: ${response.data.sent}\nFailed: ${response.data.failed}`);
+          setStatusMessage({ message: `${response.data.message}\n\nSent: ${response.data.sent}\nFailed: ${response.data.failed}`, type: "error" });
         } catch (err) {
-          toast.showError("Failed to send emails: " + (err.response?.data?.detail || err.message));
+          setStatusMessage({ message: "Failed to send emails: " + (err.response?.data?.detail || err.message, type: "error" });)
         } finally {
           setSendingEmails(false);
         }
@@ -536,6 +536,15 @@ export default function EventDetail() {
 
   return (
     <div className="app-container">
+      {/* Status Message */}
+      {statusMessage.message && (
+        <StatusBanner
+          message={statusMessage.message}
+          type={statusMessage.type}
+          onDismiss={() => setStatusMessage({ message: "", type: "" })}
+        />
+      )}
+      
       <div className="flex justify-between items-center mb-4">
         <Link to="/admin/events" className="btn btn-secondary">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

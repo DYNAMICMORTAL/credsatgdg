@@ -2,13 +2,13 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../api";
 import Loading from "../components/Loading";
-import { useToast } from "../components/ToastContainer";
+import StatusBanner from "../components/StatusBanner";
 
 export default function Dashboard() {
   const [events, setEvents] = useState([]);
   const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, certificates: 0 });
   const [loading, setLoading] = useState(true);
-  const toast = useToast();
+  const [error, setError] = useState("");
 
   useEffect(() => {
     loadEvents();
@@ -24,9 +24,10 @@ export default function Dashboard() {
       const inactive = total - active;
       
       setStats({ total, active, inactive, certificates: 0 });
+      setError("");
     } catch (err) {
       console.error("Failed to load events:", err);
-      toast.showError("Failed to load events. Please try again.");
+      setError("Failed to load events. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -38,6 +39,15 @@ export default function Dashboard() {
 
   return (
     <div className="app-container" style={{ animation: "fadeIn 0.5s ease" }}>
+      {/* Error Banner */}
+      {error && (
+        <StatusBanner
+          message={error}
+          type="error"
+          onDismiss={() => setError("")}
+        />
+      )}
+      
       {/* Hero Section */}
       <div style={{ 
         background: "linear-gradient(135deg, #1e293b 0%, #334155 100%)",

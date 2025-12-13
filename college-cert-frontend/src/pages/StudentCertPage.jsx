@@ -2,7 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../api";
 import Loading from "../components/Loading";
-import { useToast } from "../components/ToastContainer";
+import StatusBanner from "../components/StatusBanner";
 
 export default function StudentCertPage() {
   const { token } = useParams();
@@ -12,7 +12,7 @@ export default function StudentCertPage() {
   const [participant, setParticipant] = useState(null);
   const [event, setEvent] = useState(null);
   const [error, setError] = useState(null);
-  const toast = useToast();
+  const [statusMessage, setStatusMessage] = useState({ message: "", type: "" });
 
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
@@ -45,12 +45,13 @@ export default function StudentCertPage() {
     if (!participant || !event) return;
 
     setGenerating(true);
+    setStatusMessage({ message: "", type: "" });
     try {
       const response = await api.post(`/participants/generate_certificate/${token}`);
       setCertificate(response.data);
-      toast.showSuccess("Certificate generated successfully! 🎉");
+      setStatusMessage({ message: "Certificate generated successfully! 🎉", type: "success" });
     } catch (err) {
-      toast.showError("Failed to generate certificate: " + (err.response?.data?.detail || err.message));
+      setStatusMessage({ message: "Failed to generate certificate: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setGenerating(false);
     }
@@ -81,6 +82,15 @@ export default function StudentCertPage() {
 
   return (
     <div className="app-container" style={{ maxWidth: "800px", margin: "2rem auto", animation: "fadeIn 0.5s ease" }}>
+      {/* Status Message */}
+      {statusMessage.message && (
+        <StatusBanner
+          message={statusMessage.message}
+          type={statusMessage.type}
+          onDismiss={() => setStatusMessage({ message: "", type: "" })}
+        />
+      )}
+      
       {/* Header */}
       <div className="card" style={{ marginBottom: "2rem", textAlign: "center", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "white", animation: "slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1)" }}>
         <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🎓</div>
