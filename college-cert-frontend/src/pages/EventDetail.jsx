@@ -238,7 +238,7 @@ export default function EventDetail() {
       }
       loadTemplates();
     } catch (err) {
-      setStatusMessage({ message: "Failed to upload template: " + (err.response?.data?.detail || err.message, type: "error" });)
+      setStatusMessage({ message: "Failed to upload template: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setTemplateUploading(false);
     }
@@ -304,7 +304,7 @@ export default function EventDetail() {
       setIsEditingLayout(false);
       await loadTemplates();
     } catch (err) {
-      setStatusMessage({ message: "Failed to save layout: " + (err.response?.data?.detail || err.message, type: "error" });)
+      setStatusMessage({ message: "Failed to save layout: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setSavingLayout(false);
     }
@@ -326,7 +326,7 @@ export default function EventDetail() {
           setSelectedTemplateId("");
           await loadTemplates();
         } catch (err) {
-          setStatusMessage({ message: "Failed to delete template: " + (err.response?.data?.detail || err.message, type: "error" });)
+          setStatusMessage({ message: "Failed to delete template: " + (err.response?.data?.detail || err.message), type: "error" });
         } finally {
           setDeletingTemplate(false);
         }
@@ -354,7 +354,7 @@ export default function EventDetail() {
       }
       await loadTemplates();
     } catch (err) {
-      setStatusMessage({ message: "Failed to update template image: " + (err.response?.data?.detail || err.message, type: "error" });)
+      setStatusMessage({ message: "Failed to update template image: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setSavingTemplateImage(false);
     }
@@ -393,7 +393,7 @@ export default function EventDetail() {
       window.URL.revokeObjectURL(url);
       setStatusMessage({ message: "Test PDF downloaded successfully", type: "success" });
     } catch (err) {
-      setStatusMessage({ message: "Failed to download test PDF: " + (err.response?.data?.detail || err.message, type: "error" });)
+      setStatusMessage({ message: "Failed to download test PDF: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setTestingTemplate(false);
     }
@@ -418,7 +418,7 @@ export default function EventDetail() {
       setManualParticipantForm({ name: "", email: "", roll_no: "", department: "" });
       await loadParticipants();
     } catch (err) {
-      setStatusMessage({ message: "Failed to add participant: " + (err.response?.data?.detail || err.message, type: "error" });)
+      setStatusMessage({ message: "Failed to add participant: " + (err.response?.data?.detail || err.message), type: "error" });
     } finally {
       setAddingParticipant(false);
     }
@@ -442,7 +442,7 @@ export default function EventDetail() {
           setStatusMessage({ message: "Event closed successfully", type: "success" });
           await loadEvent();
         } catch (err) {
-          setStatusMessage({ message: "Failed to close event: " + (err.response?.data?.detail || err.message, type: "error" });)
+          setStatusMessage({ message: "Failed to close event: " + (err.response?.data?.detail || err.message), type: "error" });
         } finally {
           setClosingEvent(false);
         }
@@ -470,7 +470,7 @@ export default function EventDetail() {
           setStatusMessage({ message: response.data.message, type: "success" });
           loadCertificates();
         } catch (err) {
-          setStatusMessage({ message: "Failed to generate certificates: " + (err.response?.data?.detail || err.message, type: "error" });)
+          setStatusMessage({ message: "Failed to generate certificates: " + (err.response?.data?.detail || err.message), type: "error" });
         } finally {
           setGenerating(false);
         }
@@ -505,9 +505,9 @@ export default function EventDetail() {
           const response = await api.post(
             `/participants/send_certificate_links/${id}?admin_secret=${adminSecret}&template_id=${selectedTemplateId}`
           );
-          setStatusMessage({ message: `${response.data.message}\n\nSent: ${response.data.sent}\nFailed: ${response.data.failed}`, type: "error" });
+          setStatusMessage({ message: `${response.data.message}\n\nSent: ${response.data.sent}\nFailed: ${response.data.failed}`, type: "success" });
         } catch (err) {
-          setStatusMessage({ message: "Failed to send emails: " + (err.response?.data?.detail || err.message, type: "error" });)
+          setStatusMessage({ message: "Failed to send emails: " + (err.response?.data?.detail || err.message), type: "error" });
         } finally {
           setSendingEmails(false);
         }
