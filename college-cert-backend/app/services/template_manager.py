@@ -124,7 +124,9 @@ def update_template(template_id: str, updates: Dict[str, Any]) -> Dict[str, Any]
     }
 
     supabase.table(TEMPLATES_TABLE).update(payload).eq("id", template_id).execute()
-    return merged
+    
+    # Refetch from database to ensure we return exactly what was saved
+    return get_template(template_id)
 
 
 def delete_template(template_id: str) -> Dict[str, Any]:
