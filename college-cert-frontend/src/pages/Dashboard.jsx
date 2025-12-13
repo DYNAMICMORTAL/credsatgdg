@@ -1,11 +1,14 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../api";
+import Loading from "../components/Loading";
+import { useToast } from "../components/ToastContainer";
 
 export default function Dashboard() {
   const [events, setEvents] = useState([]);
   const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, certificates: 0 });
   const [loading, setLoading] = useState(true);
+  const toast = useToast();
 
   useEffect(() => {
     loadEvents();
@@ -23,21 +26,18 @@ export default function Dashboard() {
       setStats({ total, active, inactive, certificates: 0 });
     } catch (err) {
       console.error("Failed to load events:", err);
+      toast.showError("Failed to load events. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="app-container" style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "400px" }}>
-        <div className="loading-spinner" style={{ width: "48px", height: "48px" }}></div>
-      </div>
-    );
+    return <Loading fullScreen size="large" text="Loading dashboard..." />;
   }
 
   return (
-    <div className="app-container">
+    <div className="app-container" style={{ animation: "fadeIn 0.5s ease" }}>
       {/* Hero Section */}
       <div style={{ 
         background: "linear-gradient(135deg, #1e293b 0%, #334155 100%)",
@@ -47,7 +47,8 @@ export default function Dashboard() {
         marginBottom: "2.5rem",
         position: "relative",
         overflow: "hidden",
-        border: "1px solid rgba(255,255,255,0.1)"
+        border: "1px solid rgba(255,255,255,0.1)",
+        animation: "slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1)"
       }}>
         <div style={{ position: "absolute", top: 0, right: 0, width: "400px", height: "400px", background: "radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%)", pointerEvents: "none" }}></div>
         <div style={{ position: "relative", zIndex: 1 }}>
@@ -75,7 +76,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem", marginBottom: "2.5rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "1.25rem", marginBottom: "2.5rem", animation: "slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both" }}>
         <div className="card" style={{ background: "white", border: "1px solid var(--border-color)", padding: "1.75rem", boxShadow: "var(--shadow-sm)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1rem" }}>
             <div style={{ background: "#eef2ff", padding: "0.75rem", borderRadius: "var(--radius-lg)" }}>
@@ -123,7 +124,7 @@ export default function Dashboard() {
       </div>
 
       {/* Events List */}
-      <div className="card" style={{ padding: "2rem" }}>
+      <div className="card" style={{ padding: "2rem", animation: "slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "2rem", paddingBottom: "1.25rem", borderBottom: "2px solid var(--border-light)" }}>
           <div>
             <h2 style={{ fontSize: "1.5rem", fontWeight: "700", marginBottom: "0.25rem" }}>Recent Events</h2>

@@ -1,10 +1,12 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import api from "../api";
+import { useToast } from "../components/ToastContainer";
 
 export default function VerifyPage() {
   const { code } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [inputCode, setInputCode] = useState(code ?? "");
@@ -170,7 +172,7 @@ export default function VerifyPage() {
                   className="btn btn-secondary"
                   onClick={() => {
                     navigator.clipboard.writeText(shareUrl);
-                    alert('Verification link copied to clipboard!');
+                    toast.showSuccess('Verification link copied to clipboard!');
                   }}
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -243,8 +245,8 @@ export default function VerifyPage() {
   };
 
   return (
-    <div className="verify-page">
-      <div className="verify-hero-official">
+    <div className="verify-page" style={{ animation: "fadeIn 0.5s ease" }}>
+      <div className="verify-hero-official" style={{ animation: "slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1)" }}>
         <div className="official-header">
           <div className="institution-badge">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -292,7 +294,7 @@ export default function VerifyPage() {
 
       <div className="verify-content">
         {!code && (
-          <div className="verify-input-card">
+          <div className="verify-input-card" style={{ animation: "slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both" }}>
             <div className="input-card-header">
               <h2>Verify Certificate</h2>
               <p>Enter the unique certificate code to verify authenticity</p>

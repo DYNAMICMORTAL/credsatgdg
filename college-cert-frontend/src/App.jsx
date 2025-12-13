@@ -3,11 +3,11 @@ import "./App.css";
 
 export default function App() {
   return (
-    <div className="app-container">
-      <div className="hero">
-        <h1>Digital Certificate Management</h1>
-        <p>Create Events, Upload Participants, Generate Certificate Links</p>
-        <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap" }}>
+    <div className="app-container" style={{ animation: "fadeIn 0.5s ease" }}>
+      <div className="hero" style={{ animation: "slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+        <h1 style={{ animation: "fadeIn 0.8s ease 0.2s both" }}>Digital Certificate Management</h1>
+        <p style={{ animation: "fadeIn 0.8s ease 0.3s both" }}>Create Events, Upload Participants, Generate Certificate Links</p>
+        <div style={{ display: "flex", gap: "1rem", justifyContent: "center", flexWrap: "wrap", animation: "fadeIn 0.8s ease 0.4s both" }}>
           <Link to="/admin" className="btn btn-primary" style={{ fontSize: "1rem", padding: "0.875rem 1.75rem" }}>
             Get Started
           </Link>

@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api";
+import Loading from "../components/Loading";
+import { useToast } from "../components/ToastContainer";
 
 export default function EventsList() {
   const [events, setEvents] = useState([]);
   const [form, setForm] = useState({ name: "", description: "", date: "" });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [creating, setCreating] = useState(false);
+  const toast = useToast();
 
   const adminSecret = import.meta.env.VITE_ADMIN_SECRET;
 
@@ -16,9 +19,8 @@ export default function EventsList() {
       const res = await api.get("/events/");
       // Ensure we always set an array
       setEvents(Array.isArray(res.data) ? res.data : []);
-      setError("");
     } catch (err) {
-      setError("Failed to load events");
+      toast.showError("Failed to load events. Please try again.");
       console.error(err);
       setEvents([]); // Set empty array on error
     } finally {
@@ -34,24 +36,27 @@ export default function EventsList() {
     e.preventDefault();
     
     if (!form.name || !form.date) {
-      alert("Please fill in event name and date");
+      toast.showWarning("Please fill in event name and date");
       return;
     }
 
     try {
+      setCreating(true);
       await api.post(`/events/?admin_secret=${adminSecret}`, form);
       setForm({ name: "", description: "", date: "" });
       loadEvents();
-      alert("Event created successfully!");
+      toast.showSuccess("Event created successfully!");
     } catch (err) {
-      alert("Failed to create event: " + (err.response?.data?.detail || err.message));
+      toast.showError("Failed to create event: " + (err.response?.data?.detail || err.message));
+    } finally {
+      setCreating(false);
     }
   };
 
   return (
-    <div className="app-container">
+    <div className="app-container" style={{ animation: "fadeIn 0.5s ease" }}>
       {/* Header Section */}
-      <div style={{ marginBottom: "2.5rem" }}>
+      <div style={{ marginBottom: "2.5rem", animation: "slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1)" }}>
         <Link to="/" className="btn btn-secondary" style={{ marginBottom: "1.5rem", display: "inline-flex" }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"></line>
@@ -67,7 +72,7 @@ export default function EventsList() {
       </div>
 
       {/* Create Event Form */}
-      <div className="card" style={{ marginBottom: "2.5rem", padding: "2rem", border: "1px solid var(--border-color)" }}>
+      <div className="card" style={{ marginBottom: "2.5rem", padding: "2rem", border: "1px solid var(--border-color)", animation: "slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both" }}>
         <div style={{ marginBottom: "1.5rem", paddingBottom: "1rem", borderBottom: "2px solid var(--border-light)" }}>
           <h2 style={{ fontSize: "1.375rem", marginBottom: "0.25rem", fontWeight: "700" }}>Create New Event</h2>
           <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "0.875rem" }}>Set up event details to begin issuing certificates</p>
@@ -113,37 +118,34 @@ export default function EventsList() {
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ padding: "0.75rem 2rem" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 5v14M5 12h14"></path>
-            </svg>
-            Create Event
+          <button type="submit" className="btn btn-primary" style={{ padding: "0.75rem 2rem" }} disabled={creating}>
+            {creating ? (
+              <>
+                <div className="loading-spinner" style={{ width: "16px", height: "16px", borderWidth: "2px", margin: 0 }}></div>
+                Creating...
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 5v14M5 12h14"></path>
+                </svg>
+                Create Event
+              </>
+            )}
           </button>
         </form>
       </div>
 
       {/* All Events Section */}
-      <div className="card" style={{ padding: "2rem", border: "1px solid var(--border-color)" }}>
+      <div className="card" style={{ padding: "2rem", border: "1px solid var(--border-color)", animation: "slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both" }}>
         <div style={{ marginBottom: "2rem", paddingBottom: "1rem", borderBottom: "2px solid var(--border-light)" }}>
           <h2 style={{ fontSize: "1.375rem", marginBottom: "0.25rem", fontWeight: "700" }}>All Events</h2>
           <p style={{ color: "var(--text-muted)", margin: 0, fontSize: "0.875rem" }}>Manage your created events and their certificates</p>
         </div>
         
         {loading && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4rem", flexDirection: "column", gap: "1rem" }}>
-            <div className="loading-spinner" style={{ width: "40px", height: "40px", borderWidth: "3px" }}></div>
-            <span style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Loading events...</span>
-          </div>
-        )}
-        
-        {error && (
-          <div className="alert alert-error" style={{ marginBottom: "1.5rem" }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-            {error}
+          <div style={{ padding: "4rem" }}>
+            <Loading size="default" text="Loading events..." />
           </div>
         )}
 

@@ -1,6 +1,8 @@
 import { useParams, Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import api from "../api";
+import Loading from "../components/Loading";
+import { useToast } from "../components/ToastContainer";
 
 export default function StudentCertPage() {
   const { token } = useParams();
@@ -10,6 +12,7 @@ export default function StudentCertPage() {
   const [participant, setParticipant] = useState(null);
   const [event, setEvent] = useState(null);
   const [error, setError] = useState(null);
+  const toast = useToast();
 
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
@@ -45,21 +48,16 @@ export default function StudentCertPage() {
     try {
       const response = await api.post(`/participants/generate_certificate/${token}`);
       setCertificate(response.data);
-      alert("Certificate generated successfully! 🎉");
+      toast.showSuccess("Certificate generated successfully! 🎉");
     } catch (err) {
-      alert("Failed to generate certificate: " + (err.response?.data?.detail || err.message));
+      toast.showError("Failed to generate certificate: " + (err.response?.data?.detail || err.message));
     } finally {
       setGenerating(false);
     }
   };
 
   if (loading) {
-    return (
-      <div className="app-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "80vh" }}>
-        <div className="loading-spinner" style={{ width: "48px", height: "48px", borderWidth: "4px" }}></div>
-        <span style={{ marginTop: "1.5rem", color: "var(--text-muted)", fontSize: "1rem" }}>Loading your certificate...</span>
-      </div>
-    );
+    return <Loading fullScreen size="large" text="Loading your certificate..." />;
   }
 
   if (error) {
@@ -82,9 +80,9 @@ export default function StudentCertPage() {
   }
 
   return (
-    <div className="app-container" style={{ maxWidth: "800px", margin: "2rem auto" }}>
+    <div className="app-container" style={{ maxWidth: "800px", margin: "2rem auto", animation: "fadeIn 0.5s ease" }}>
       {/* Header */}
-      <div className="card" style={{ marginBottom: "2rem", textAlign: "center", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "white" }}>
+      <div className="card" style={{ marginBottom: "2rem", textAlign: "center", background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)", color: "white", animation: "slideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1)" }}>
         <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>🎓</div>
         <h1 style={{ fontSize: "2.5rem", marginBottom: "0.5rem", fontWeight: "800" }}>
           {certificate ? "Your Certificate" : "Generate Your Certificate"}
@@ -95,7 +93,7 @@ export default function StudentCertPage() {
       </div>
 
       {/* Participant Info */}
-      <div className="card" style={{ marginBottom: "2rem" }}>
+      <div className="card" style={{ marginBottom: "2rem", animation: "slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both" }}>
         <h2 style={{ fontSize: "1.25rem", marginBottom: "1.5rem", fontWeight: "700", paddingBottom: "1rem", borderBottom: "1px solid var(--border-light)" }}>
           Your Information
         </h2>
@@ -133,7 +131,7 @@ export default function StudentCertPage() {
 
       {/* Certificate Section */}
       {certificate ? (
-        <div className="card">
+        <div className="card" style={{ animation: "slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both" }}>
           <div style={{ marginBottom: "1.5rem", textAlign: "center" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: "0.75rem", padding: "0.75rem 1.5rem", background: "var(--success-light)", color: "var(--success)", borderRadius: "var(--radius-lg)", marginBottom: "1rem" }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -202,7 +200,7 @@ export default function StudentCertPage() {
           </div>
         </div>
       ) : (
-        <div className="card" style={{ textAlign: "center", padding: "3rem 2rem" }}>
+        <div className="card" style={{ textAlign: "center", padding: "3rem 2rem", animation: "slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both" }}>
           <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: "0 auto 1.5rem", color: "var(--primary)" }}>
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
             <polyline points="14 2 14 8 20 8"></polyline>
