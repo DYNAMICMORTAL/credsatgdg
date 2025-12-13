@@ -1712,18 +1712,6 @@ function LayoutControls({ layout, onChange, onAddField, onRemoveField }) {
     }
   };
 
-  const handleRemoveFieldOld = (fieldKey) => {
-    if (predefinedFields.includes(fieldKey)) {
-      if (!window.confirm(`Remove the "${fieldKey}" field from the certificate?`)) {
-        return;
-      }
-    }
-    
-    if (onRemoveField) {
-      onRemoveField(fieldKey);
-    }
-  };
-
   return (
     <div className="layout-controls-sidebar" style={{ maxHeight: "600px", overflowY: "auto" }}>
       <h3>
